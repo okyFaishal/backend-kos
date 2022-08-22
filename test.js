@@ -1,0 +1,51 @@
+const db = {
+  user: require('./module/user/model'),
+  otp: require('./module/otp/model'),
+  chat: require('./module/chat/model'),
+  db: require('./config/connection'),
+}
+
+async function test(){
+  try {
+    // console.log(await db.user.findAll())
+    // console.log(await db.otp.create({
+    //   email: 'test'+Math.random()+'@gmail.com', 
+    //   type: 'register', 
+    //   valid_until: new Date(), 
+    //   otp: '908767', 
+    // }))
+    // // console.log(await db.db.query(`insert into otp(email, type, valid_until, otp) values('test${Math.random()}@gmail.com', 'register', now(), 90987)`))
+    // console.log(await db.otp.findAll())
+    // console.log(await db.db.query('select * from otp'))
+
+    let data
+    console.log(data = await db.user.create({
+      image_profile: 'asd.jpg',
+      image_ktp: '123.jpg',
+      username: 'mona',
+      email: 'mona'+Math.random()+'@gmail.com',
+      password: 'ubomd0w92nvoefjvn',
+      contact: '123.019283746565',
+      nik: Math.random(),
+      birth_place: 'semarang',
+      birth_date: new Date(),
+      religion: 'islam',
+      gender: 'laki laki',
+      status: 'mahasiswa',
+    }))
+    console.log("========================")
+    console.log(data = await db.chat.create({
+      date: new Date(),
+      message: 'asdqwe123',
+      userId: data.id
+    }))
+    console.log("========================")
+    console.log(await db.chat.findAll())
+    console.log("========================")
+    console.log(await db.db.query('select * from chat'))
+  } catch (error) {
+    console.log("error")
+    console.log(error)
+  }
+}
+test()
