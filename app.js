@@ -1,7 +1,8 @@
-// require('dotenv').config()
+require('dotenv').config()
 const express = require('express')
-const app = express()
+// const morgan = require('morgan')
 const cors = require('cors')
+const app = express()
 const routing = require('./routing/index')
 
 

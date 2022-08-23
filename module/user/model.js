@@ -115,7 +115,6 @@ const user = sq.define(
     ],
     updatedAt: 'updated_at',
     createdAt: 'created_at',
-    paranoid: true,
     freezeTableName: true,
   }
 );

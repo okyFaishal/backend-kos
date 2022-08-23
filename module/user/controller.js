@@ -84,23 +84,23 @@ class Controller {
       res.status(200).json({ status: 200, message: error})
     }
   }
-  static async deleteAcount(req, res) {
-    try {
-      let id = req.dataUsers.id //mengambil id sendiri (admin dan user)
-      if(req.dataUsers.status_user && req.body.id) id = req.body.id //mengambil id dari body (khusus admin)
+  // static async deleteAcount(req, res) {
+  //   try {
+  //     let {id, status_user} = req.dataUsers
+  //     if(status_user){ 
+  //       if(req.body.id && req.body.id != id) id = req.body.id
+  //       else throw 'tidak bisa menghapus akun admin'
+  //     }
 
-      let result = await user.destroy({where: {id}})
-      if(result == 0) throw 'id tidak ditemukan'
+  //     let result = await user.destroy({where: {id}})
+  //     if(result == 0) throw 'user tidak ditemukan'
 
-      res.status(200).json({ status: 200, message: 'berhasil dihapus'})
-    } catch (error) {
-      console.log(error)
-      res.status(200).json({ status: 200, message: error})
-    }
-  }
+  //     res.status(200).json({ status: 200, message: 'berhasil dihapus'})
+  //   } catch (error) {
+  //     console.log(error)
+  //     res.status(200).json({ status: 200, message: error})
+  //   }
+  // }
 }
 
 module.exports = Controller
-
-
-

@@ -49,7 +49,7 @@ router.use("/", Multer, async (req, res, next)=>{
           if(name[1] == 'profile'){ ///image profile
             result = await sharp(path).resize(200, 200).toFile(newPath) //create convert image 
           }else{
-            result = await sharp(path).resize(1000, 1000, { fit: sharp.fit.inside, withoutEnlargement: true}).toFile(newPath) //create convert image 
+            result = await sharp(path).resize(1500, 1500, {fit: sharp.fit.inside, withoutEnlargement: true}).toFile(newPath) //create convert image 
           }
           fs.unlinkSync(path) //delete image original
           req.files[key][i] = {...ell, ...result, ...{path: newPath, filename: newFileName}}

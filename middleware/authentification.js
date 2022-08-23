@@ -8,6 +8,7 @@ async function authentification(req, res, next){
       req.dataToken = verifyToken(token)
       req.dataUsers = await user.findOne({where: {id: req.dataToken.id}})
       if(!req.dataUsers) throw ''
+      req.dataUsers = req.dataUsers.dataValues
       next()
     }else{
       res.status(200).json({ status: 200, message: "anda belum login" });

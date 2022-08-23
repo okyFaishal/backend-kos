@@ -1,13 +1,12 @@
 const { DataTypes } = require("sequelize");
 const sq = require("../../config/connection");
+const user = require("../user/model")
 
 const otp = sq.define(
   "otp",
   {
-    email: {
-      type: DataTypes.STRING,
-      unique: true,
-      allowNull: false,
+    user_id: {
+      type: DataTypes.INTEGER,
     },
     type:{
       type:DataTypes.STRING,
@@ -36,5 +35,10 @@ const otp = sq.define(
     freezeTableName: true,
   }
 );
+
+user.hasMany(otp, {
+  foreignKey: 'user_id',
+});
+otp.belongsTo(user);
 
 module.exports = otp;
