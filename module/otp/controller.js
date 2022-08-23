@@ -39,7 +39,7 @@ class Controller {
       kirimEmail.kirim(email, `request otp`, `<h2 style="text-align: center;">code otp</h2><h1 style="text-align: center">${codeOtp}</h1>`)
       let result = await otp.create({user_id: id, type, valid_until, otp: codeOtp})
 
-      res.status(200).json({ status: 200, message: 'success create otp', data: result})
+      res.status(200).json({ status: 200, message: 'success create otp'})
     } catch (error) {
       console.log(error)
       res.status(200).json({ status: 200, message: error})
