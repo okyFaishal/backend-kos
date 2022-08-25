@@ -52,7 +52,7 @@ class Controller {
       }
       if(total_payment){ //total payment
         if((/\D/.test(total_payment))) throw 'payment tidak valid'
-        result.payment = await sq.query(`select sum(p.pay) as total_payment from payment p where history_id = :id group by history_id limit 1`, {replacements: {id}, type: QueryTypes.SELECT})
+        result.payment = await sq.query(`select sum(p.pay) as total_payment from payment p where history_id = :id and deleted_at is null group by history_id limit 1`, {replacements: {id}, type: QueryTypes.SELECT})
         if(result.payment.length == 0) throw 'payment tidak ditemukan'
         if(total_payment < result.payment[0].total_payment) throw 'total payment lebih rendah dari pembayaran yang sudah dibayarkan'
         data.pay = total_payment
@@ -64,8 +64,8 @@ class Controller {
           result.start_kos = await sq.query(`
             select start_kos, start_kos + interval '1 month' * p.duration as "end_kos", p.duration, r.id, h.id
             from history h
-              inner join room r on r.id = :room_id and r.id = h.room_id 
-              inner join package p on h.room_id = r.id  and p.id = h.package_id
+              inner join room r on r.id = :room_id and r.id = h.room_id and r.deleted_at is null
+              inner join package p on h.room_id = r.id  and p.id = h.package_id and p.deleted_at is null
             where 
               ((timestamp :start_kos >= start_kos and timestamp :start_kos <= start_kos + interval '1 month' * p.duration) or
               (timestamp :start_kos + interval '1 month' * p.duration > start_kos and timestamp :start_kos + interval '1 month' * p.duration < start_kos + interval '1 month' * p.duration) or
@@ -82,8 +82,8 @@ class Controller {
           result.start_kos = await sq.query(`
             select start_kos, start_kos + interval '1 month' * p.duration as "end_kos", p.duration, r.id
             from history h
-              inner join room r on r.id = h.room_id 
-              inner join package p on h.room_id = r.id  and p.id = h.package_id
+              inner join room r on r.id = h.room_id and r.deleted_at is null
+              inner join package p on h.room_id = r.id and p.deleted_at is null
             where 
               r.id = any(select h2.room_id  from history h2 where id = :id) and
               ((timestamp :start_kos >= start_kos and timestamp :start_kos <= start_kos + interval '1 month' * p.duration) or
