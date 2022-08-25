@@ -17,6 +17,10 @@ const payment = sq.define(
       type:DataTypes.INTEGER,
       allowNull: false,
     },
+    type:{
+      type:DataTypes.STRING,
+      allowNull: false,
+    },
     date:{
       type:DataTypes.DATE,
       allowNull: false,
