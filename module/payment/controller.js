@@ -121,9 +121,10 @@ class Controller {
   }
   static async updatePayment(req, res, next) {
     try {
-      const {payment_id} = req.params
+      const {id} = req.params
       let {payment, date} = req.body
-      if(!(payment_id)) throw {status: 400, message: 'masukkan id payment'}
+      let data = {}
+      if(!(id)) throw {status: 400, message: 'masukkan id payment'}
       if(!req.dataUsers.status_user) throw {status: 403, message: 'tidak memiliki akses'}
       if(!(payment || date)) throw {status: 400, message: 'tidak ada yang perlu diupdate'}
       if(payment && (/\D/.test(payment))) throw {status: 400, message: 'payment tidak valid'}
@@ -131,21 +132,27 @@ class Controller {
       if(date){
         date = date ? moment(date).utc() : moment().utc()
         if(/Invalid date/i.test(date)) throw {status: 400, message: 'date tidak valid'}
+        data.date = date
+      }
+      if(payment){
+        let result = await sq.query(`
+          select round(p.pay) as "pay", sum(p2.pay) as "total_payment", round(h.pay) as "money", round(h.user_id) as "user_id"
+          from payment p 
+            inner join payment p2 on p.history_id = p2.history_id 
+            inner join history h on p.history_id = h.id 
+          where p.id = :id 
+          group by p.id, h.id
+        `,{
+          replacements: {id},
+          type: QueryTypes.SELECT
+        })
+        if(result.length == 0) throw {status: 402, message: 'data pembayaran tidak ditemukan'}
+        console.log(result)
+        if(result[0].money - result[0].pay + payment > result[0].money) throw {status: 400, message: 'pembayaran melebihi total tagihan'}
+        data.pay = payment
       }
 
-      let result = await sq.query(`
-        select sum(p.pay) as "total_payment", round(h.pay) as "money", round(h.user_id) as "user_id"
-        from history h right join payment p on p.history_id = h.id and p.deleted_at is null
-        where h.id = :history_id and h.deleted_at is null
-        group by h.id 
-      `,{
-        replacements: {history_id},
-        type: QueryTypes.SELECT
-      })
-      if(result.length == 0) throw {status: 402, message: 'data pembayaran tidak ditemukan'}
-      if(result[0].money - result[0].total_payment < payment) throw {status: 400, message: 'pembayaran melebihi total tagihan'}
-
-      result = await dbpayment.create({history_id, user_id: result[0].user_id, date, pay: payment, type: 'angsuran'})
+      let result = await dbpayment.update(data, {where: {id}})
       res.status(200).json({status: 200, message: 'success create angsuran', data: result})
     } catch (error) {
       next({status: 500, data: error})
