@@ -1,7 +1,16 @@
-let mona = {halo: "hai dunia", angka: 123}
-console.log(mona)
-console.log(typeof mona)
-console.log(mona.test)
+let cek = 1
+console.log(Number.isInteger(100))
+console.log(Number.isInteger('100'))
+console.log(Number.isInteger(parseInt(100)))
+console.log(Number.isInteger(parseInt('100')))
+console.log(Number.isInteger(parseInt('as100')))
+console.log(typeof 100)
+console.log(typeof '100')
+
+// let mona = {halo: "hai dunia", angka: 123}
+// console.log(mona)
+// console.log(typeof mona)
+// console.log(mona.test)
 
 // const moment = require('moment')
 // console.log(new Date())

@@ -23,7 +23,7 @@ class Controller {
       }
 
       let result = await history.findAll({order: [['updated_at', 'DESC']], where})
-      next({status: 200, message: 'success show room', data: result})
+      res.status(200).json({status: 200, message: 'success show room', data: result})
     } catch (error) {
       next({status: 500, data: error})
     }
@@ -32,33 +32,33 @@ class Controller {
     try {
       let {id} = req.params
       let {package_id, room_id, total_payment, start_kos} = req.body
-      if(!(package_id || room_id || total_payment || start_kos)) next({status: 400, message: 'tidak ada data yang diupdate'})
-      if(!id) next({status: 400, message: 'masukkan id history yang akan dubah'})
+      if(!(package_id || room_id || total_payment || start_kos)) throw {status: 400, message: 'tidak ada data yang diupdate'}
+      if(!id) throw {status: 400, message: 'masukkan id history yang akan dubah'}
       let result = {}
       const data = {}
 
       if(package_id){ //package
-        if((/\D/.test(package_id))) next({status: 400, message: 'package id tidak valid'})
+        if((/\D/.test(package_id))) throw {status: 400, message: 'package id tidak valid'}
         result.package = await dbpackage.findOne({where: {id: package_id}})
-        if(!result.package) next({status: 400, message: 'package tidak ditemukan'})
+        if(!result.package) throw {status: 400, message: 'package tidak ditemukan'}
         data.package_id = package_id
       }
       if(room_id){ //room
-        if((/\D/.test(room_id))) next({status: 400, message: 'room id tidak valid'})
+        if((/\D/.test(room_id))) throw {status: 400, message: 'room id tidak valid'}
         result.room = await room.findOne({where: {id: room_id}})
-        if(!result.room) next({status: 400, message: 'room tidak ditemukan'})
+        if(!result.room) throw {status: 400, message: 'room tidak ditemukan'}
         data.room_id = room_id
       }
       if(total_payment){ //total payment
-        if((/\D/.test(total_payment))) next({status: 400, message: 'payment tidak valid'})
+        if((/\D/.test(total_payment))) throw {status: 400, message: 'payment tidak valid'}
         result.payment = await sq.query(`select sum(p.pay) as total_payment from payment p where history_id = :id and deleted_at is null group by history_id limit 1`, {replacements: {id}, type: QueryTypes.SELECT})
-        if(result.payment.length == 0) next({status: 400, message: 'payment tidak ditemukan'})
-        if(total_payment < result.payment[0].total_payment) next({status: 400, message: 'total payment lebih rendah dari pembayaran yang sudah dibayarkan'})
+        if(result.payment.length == 0) throw {status: 400, message: 'payment tidak ditemukan'}
+        if(total_payment < result.payment[0].total_payment) throw {status: 400, message: 'total payment lebih rendah dari pembayaran yang sudah dibayarkan'}
         data.pay = total_payment
       }
       if(start_kos){ //start kos
         start_kos = moment(start_kos).utc().format()
-        if(/Invalid date/i.test(start_kos)) next({status: 400, message: 'start kos tidak valid'})
+        if(/Invalid date/i.test(start_kos)) throw {status: 400, message: 'start kos tidak valid'}
         if(room_id){
           result.start_kos = await sq.query(`
             select start_kos, start_kos + interval '1 month' * p.duration as "end_kos", p.duration, r.id, h.id
@@ -76,7 +76,7 @@ class Controller {
             type: QueryTypes.SELECT
           })
           console.log(result.start_kos)
-          if(result.start_kos.length) next({status: 400, message: 'kamar masih dihuni'})
+          if(result.start_kos.length) throw {status: 400, message: 'kamar masih dihuni'}
         }else{
           result.start_kos = await sq.query(`
             select start_kos, start_kos + interval '1 month' * p.duration as "end_kos", p.duration, r.id
@@ -95,15 +95,15 @@ class Controller {
             type: QueryTypes.SELECT
           })
           console.log(result.start_kos)
-          if(result.start_kos.length) next({status: 400, message: 'kamar masih dihuni'})
+          if(result.start_kos.length) throw {status: 400, message: 'kamar masih dihuni'}
         }
         data.start_kos = start_kos
       }
 
       
       result = await history.update(data, {where: {id}})
-      if(result[0] == 0) next({status: 400, message: 'tidak menemukan data yang akan diupdate'})
-      next({status: 200, message: 'success create payment dp', data: result})
+      if(result[0] == 0) throw {status: 400, message: 'tidak menemukan data yang akan diupdate'}
+      res.status(200).json({status: 200, message: 'success create payment dp', data: result})
     } catch (error) {
       next({status: 500, data: error})
     }
@@ -111,11 +111,11 @@ class Controller {
   static async deleteHistory(req, res, next) {
     try {
       const {id} = req.params
-      if(!id) next({status: 400, message: 'masukkan id yang akan dihapus'})
-      if(!req.dataUsers.status_user) next({status: 403, message: 'tidak memiliki akses'})
+      if(!id) throw {status: 400, message: 'masukkan id yang akan dihapus'}
+      if(!req.dataUsers.status_user) throw {status: 403, message: 'tidak memiliki akses'}
       let result = await history.destroy({where: {id}})
-      if(result == 0) next({status: 400, message: 'tidak menemukan data yang akan dihapus'})
-      next({status: 200, message: 'success delete history', data: result})
+      if(result == 0) throw {status: 400, message: 'tidak menemukan data yang akan dihapus'}
+      res.status(200).json({status: 200, message: 'success delete history', data: result})
     } catch (error) {
       next({status: 500, data: error})
     }
