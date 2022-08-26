@@ -10,7 +10,7 @@ const moment = require('moment')
 
 
 class Controller {
-  static async showPayment(req, res) {
+  static async showPayment(req, res, next) {
     try {
       let {user_id, history_id, pay, date, type} = req.body
       let where = {}
@@ -26,30 +26,29 @@ class Controller {
         where = {user_id: req.dataUsers.id}
       }
       let result = await dbpayment.findAll({order: [['updated_at', 'DESC']], where})
-      res.status(200).json({ status: 200, message: 'success show payment', data: result})
+      next({status: 200, message: 'success show payment', data: result})
     } catch (error) {
-      console.log(error)
-      res.status(200).json({ status: 200, message: error})
+      next({status: 500, data: error})
     }
   }
-  static async createPaymentDp(req, res) {
+  static async createPaymentDp(req, res, next) {
     const t = await sq.transaction();
     try {
       let {user_id, package_id, room_id, payment, total_payment, start_kos, date} = req.body
       start_kos = moment(start_kos).utc()
       date = date ? moment(date).utc() : moment().utc()
-      if(!req.dataUsers.status_user) throw 'tidak memiliki akses'
-      if(!(user_id && package_id && room_id && payment && total_payment && start_kos && date)) throw 'lengkapi data'
-      if(user_id && (/\D/.test(user_id))) throw 'user id tidak valid'
-      if(package_id && (/\D/.test(package_id))) throw 'package id tidak valid'
-      if(room_id && (/\D/.test(room_id))) throw 'room id tidak valid'
-      if(payment && (/\D/.test(payment))) throw 'payment tidak valid'
-      if(total_payment && (/\D/.test(total_payment))) throw 'total payment tidak valid'
+      if(!req.dataUsers.status_user) next({status: 403, message: 'tidak memiliki akses'})
+      if(!(user_id && package_id && room_id && payment && total_payment && start_kos && date)) next({status: 400, message: 'lengkapi data'})
+      if(user_id && (/\D/.test(user_id))) next({status: 400, message: 'user id tidak valid'})
+      if(package_id && (/\D/.test(package_id))) next({status: 400, message: 'package id tidak valid'})
+      if(room_id && (/\D/.test(room_id))) next({status: 400, message: 'room id tidak valid'})
+      if(payment && (/\D/.test(payment))) next({status: 400, message: 'payment tidak valid'})
+      if(total_payment && (/\D/.test(total_payment))) next({status: 400, message: 'total payment tidak valid'})
       payment = Number.parseInt(payment)
       total_payment = Number.parseInt(total_payment)
-      if(payment > total_payment) throw 'pembayaran melebihi jumlah yang harus dibayarkan'
-      if(/Invalid date/i.test(start_kos)) throw 'start kos tidak valid'
-      if(/Invalid date/i.test(date)) throw 'date tidak valid'
+      if(payment > total_payment) next({status: 400, message: 'pembayaran melebihi jumlah yang harus dibayarkan'})
+      if(/Invalid date/i.test(start_kos)) next({status: 400, message: 'start kos tidak valid'})
+      if(/Invalid date/i.test(date)) next({status: 400, message: 'date tidak valid'})
 
       let result = await sq.query(`
         select 
@@ -73,83 +72,78 @@ class Controller {
         replacements: {user_id, package_id, room_id, start_kos: start_kos.format()},
         type: QueryTypes.SELECT
       })
-      // throw result
-      if(result.length == 0) throw 'user, package, dan room tidak ditemukan'
-      if(!result[0].user_id) throw 'user tidak ditemukan'
-      if(!result[0].package_id) throw 'package tidak ditemukan'
-      if(!result[0].room_id) throw 'room tidak ditemukan'
-      if(result[0].price >= total_payment && result[0].price > payment) throw 'dp minimal ' + payment
-      if(result[0].status_user) throw 'admin tidak bisa memesan'
-      if(result[0].start_kos) throw 'dalam waktu tersebut kamar masih terisi'
+      // next({status: 400, message: result})
+      if(result.length == 0) next({status: 400, message: 'user, package, dan room tidak ditemukan'})
+      if(!result[0].user_id) next({status: 400, message: 'user tidak ditemukan'})
+      if(!result[0].package_id) next({status: 400, message: 'package tidak ditemukan'})
+      if(!result[0].room_id) next({status: 400, message: 'room tidak ditemukan'})
+      if(result[0].price >= total_payment && result[0].price > payment) next({status: 400, message: 'dp minimal ' + payment})
+      if(result[0].status_user) next({status: 400, message: 'admin tidak bisa memesan'})
+      if(result[0].start_kos) next({status: 400, message: 'dalam waktu tersebut kamar masih terisi'})
 
       let resultHistory = await history.create({user_id, package_id, room_id, start_kos, pay: total_payment}, {transaction: t})
-      if(!resultHistory) throw 'gagal melakukan pemesanan'
+      if(!resultHistory) next({status: 400, message: 'gagal melakukan pemesanan'})
       let resultPayment = await dbpayment.create({user_id, history_id: resultHistory.id, pay: payment, date, type: 'dp'}, {transaction: t})
-      if(!resultPayment) throw 'gagal melakukan pembayaran'
+      if(!resultPayment) next({status: 400, message: 'gagal melakukan pembayaran'})
       await t.commit();
-      res.status(200).json({ status: 200, message: 'success create payment dp', data: {result, resultHistory, resultPayment}})
+      next({status: 200, message: 'success create payment dp', data: {result, resultHistory, resultPayment}})
     } catch (error) {
-      await t.rollback();
-      console.log(error)
-      res.status(200).json({ status: 200, message: error})
+      next({status: 500, data: error})
     }
   }
-  static async createPaymentAngsuran(req, res) {
+  static async createPaymentAngsuran(req, res, next) {
     try {
       let {user_id, history_id, payment, date} = req.body
       date = date ? moment(date).utc() : moment().utc()
-      if(!req.dataUsers.status_user) throw 'tidak memiliki akses'
-      if(!(user_id && history_id && pay && date)) throw 'lengkapi data'
-      if(user_id && (/\D/.test(user_id))) throw 'user id tidak valid'
-      if(payment && (/\D/.test(payment))) throw 'payment tidak valid'
+      if(!req.dataUsers.status_user) next({status: 403, message: 'tidak memiliki akses'})
+      if(!(user_id && history_id && pay && date)) next({status: 400, message: 'lengkapi data'})
+      if(user_id && (/\D/.test(user_id))) next({status: 400, message: 'user id tidak valid'})
+      if(payment && (/\D/.test(payment))) next({status: 400, message: 'payment tidak valid'})
       payment = Number.parseInt(payment)
-      if(/Invalid date/i.test(start_kos)) throw 'start kos tidak valid'
-      if(/Invalid date/i.test(date)) throw 'date tidak valid'
+      if(/Invalid date/i.test(start_kos)) next({status: 400, message: 'start kos tidak valid'})
+      if(/Invalid date/i.test(date)) next({status: 400, message: 'date tidak valid'})
 
-      
 
-      if(!req.dataUsers.status_user) throw 'tidak memiliki akses'
-      if(!id) throw 'masukkan id yang akan diupdate'
-      if(!(name || size || price)) throw 'tidak ada yang diupdate'
-      if(price && (/\D/.test(price))) throw 'price tidak valid'
+
+      if(!req.dataUsers.status_user) next({status: 403, message: 'tidak memiliki akses'})
+      if(!id) next({status: 400, message: 'masukkan id yang akan diupdate'})
+      if(!(name || size || price)) next({status: 400, message: 'tidak ada yang diupdate'})
+      if(price && (/\D/.test(price))) next({status: 400, message: 'price tidak valid'})
 
       let result = await room.update({name, size, price}, {where: {id}})
-      if(result[0] == 0) throw 'tidak menemukan data yang akan diupdate'
-      res.status(200).json({ status: 200, message: 'success update room', data: result})
+      if(result[0] == 0) next({status: 402, message: 'tidak menemukan data yang akan diupdate'})
+      next({status: 200, message: 'success update room', data: result})
     } catch (error) {
-      console.log(error)
-      res.status(200).json({ status: 200, message: error})
+      next({status: 500, data: error})
     }
   }
-  static async updatePayment(req, res) {
+  static async updatePayment(req, res, next) {
     try {
       const {id} = req.params
       const {name, size, price} = req.body
 
-      if(!req.dataUsers.status_user) throw 'tidak memiliki akses'
-      if(!id) throw 'masukkan id yang akan diupdate'
-      if(!(name || size || price)) throw 'tidak ada yang diupdate'
-      if(price && (/\D/.test(price))) throw 'price tidak valid'
+      if(!req.dataUsers.status_user) next({status: 403, message: 'tidak memiliki akses'})
+      if(!id) next({status: 400, message: 'masukkan id yang akan diupdate'})
+      if(!(name || size || price)) next({status: 400, message: 'tidak ada yang diupdate'})
+      if(price && (/\D/.test(price))) next({status: 400, message: 'price tidak valid'})
 
       let result = await room.update({name, size, price}, {where: {id}})
-      if(result[0] == 0) throw 'tidak menemukan data yang akan diupdate'
-      res.status(200).json({ status: 200, message: 'success update room', data: result})
+      if(result[0] == 0) next({status: 402, message: 'tidak menemukan data yang akan diupdate'})
+      next({status: 200, message: 'success update room', data: result})
     } catch (error) {
-      console.log(error)
-      res.status(200).json({ status: 200, message: error})
+      next({status: 500, data: error})
     }
   }
-  static async deletePayment(req, res) {
+  static async deletePayment(req, res, next) {
     try {
       const {id} = req.params
-      if(!id) throw 'masukkan id yang akan dihapus'
-      if(!req.dataUsers.status_user) throw 'tidak memiliki akses'
+      if(!id) next({status: 400, message: 'masukkan id yang akan dihapus'})
+      if(!req.dataUsers.status_user) next({status: 403, message: 'tidak memiliki akses'})
       let result = await dbpayment.destroy({where: {id}})
-      if(result == 0) throw 'tidak menemukan data yang akan dihapus'
-      res.status(200).json({ status: 200, message: 'success delete payment', data: result})
+      if(result == 0) next({status: 402, message: 'tidak menemukan data yang akan dihapus'})
+      next({status: 200, message: 'success delete payment', data: result})
     } catch (error) {
-      console.log(error)
-      res.status(200).json({ status: 200, message: error})
+      next({status: 500, data: error})
     }
   }
 }

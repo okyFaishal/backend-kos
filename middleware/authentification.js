@@ -11,11 +11,11 @@ async function authentification(req, res, next){
       req.dataUsers = req.dataUsers.dataValues
       next()
     }else{
-      res.status(200).json({ status: 200, message: "anda belum login" });
+      res.status(403).json({ status: 403, message: "anda belum login" });
     }
   } catch(err) {
     console.log(err)
-    res.status(200).json({ status: 200, message: "anda belum login" });
+    res.status(403).json({ status: 403, message: "anda belum login" });
   }
 }
 
