@@ -19,10 +19,10 @@ class Controller {
   }
   static async createBuild(req, res, next) {
     try {
-      const {name, adress} = req.body
+      const {name, address} = req.body
       if(!req.dataUsers.status_user) throw {status: 403, message: 'Tidak Memiliki Akses'}
-      if(!(name && adress)) throw {status: 400, message: 'Lengkapi Data'}
-      let result = await build.create({name, adress})
+      if(!(name && address)) throw {status: 400, message: 'Lengkapi Data'}
+      let result = await build.create({name, address})
       res.status(200).json({status: 200, message: 'success create build', data: result})
     } catch (error) {
       next({status: 500, data: error})
@@ -31,11 +31,11 @@ class Controller {
   static async updateBuild(req, res, next) {
     try {
       const {id} = req.params
-      const {name, adress} = req.body
+      const {name, address} = req.body
       if(!req.dataUsers.status_user) throw {status: 403, message: 'Tidak Memiliki Akses'}
       if(!id) throw {status: 400, message: 'Masukkan Id Build Yang Akan Di Update'}
-      if(!(name || adress)) throw {status: 400, message: 'Tidak Ada Yang Di Update'}
-      let result = await build.update({name, adress}, {where: {id}})
+      if(!(name || address)) throw {status: 400, message: 'Tidak Ada Yang Di Update'}
+      let result = await build.update({name, address}, {where: {id}})
       if(result[0] == 0) throw {status: 400, message: 'tidak menemukan data yang akan diupdate'}
       // result = await build.findOne({where: {id}})
       res.status(200).json({status: 200, message: 'success update build', data: result})

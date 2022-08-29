@@ -52,45 +52,45 @@ const user = sq.define(
       type: DataTypes.STRING,
       allowNull: false,
     },
-    birth_place:{
+    birth_place: {
       type:DataTypes.STRING,
       allowNull: false,
     },
-    birth_date:{
+    birth_date: {
       type:DataTypes.DATE,
       allowNull: false,
     },
-    religion:{
+    religion: {
       type:DataTypes.STRING,
       allowNull: false,
     },
-    gender:{
+    gender: {
       type:DataTypes.STRING,
       allowNull: false,
     },
-    emergency_name:{
+    emergency_name: {
       type:DataTypes.STRING,
     },
-    emergency_contact:{
+    emergency_contact: {
       type:DataTypes.STRING,
     },
-    status:{
+    status: {
       type:DataTypes.STRING,
       allowNull: false,
     },
-    name_company:{
+    name_company: {
       type:DataTypes.STRING,
     },
-    name_university:{
+    name_university: {
       type:DataTypes.STRING,
     },
-    major:{
+    major: {
       type:DataTypes.STRING,
     },
-    degree:{
+    degree: {
       type:DataTypes.STRING,
     },
-    generation:{
+    generation: {
       type:DataTypes.STRING,
     },
     created_at: {
@@ -111,6 +111,10 @@ const user = sq.define(
       {
         unique: true,
         fields: ['email']
+      },
+      {
+        unique: true,
+        fields: ['contact']
       }
     ],
     updatedAt: 'updated_at',
@@ -118,5 +122,35 @@ const user = sq.define(
     freezeTableName: true,
   }
 );
-
+// async function start(){
+//   try {
+//     let dataUser = await user.findAll({where: {status_user: true}})
+//     console.log(dataUser)
+//     if(dataUser.length == 0) dataUser = await user.create({
+//       public: true,
+//       public_religion: false,
+//       public_gender: false,
+//       image_profile: 'default.jpg',
+//       image_ktp: 'default.jpg',
+//       status_user: true,
+//       username: 'admin',
+//       email: 'admin@gmail.com',
+//       verify_email: false,
+//       contact: 123456123456,
+//       password: 'admin',
+//       nik: 1234567812345678,
+//       birth_place: 'admin',
+//       birth_date: new Date(),
+//       religion: 'admin',
+//       gender: 'admin',
+//       status: 'admin',
+//     })
+//   console.log(dataUser)
+//   dataUser instanceof user 
+//   } catch (error) {
+//     console.log("error")
+//     console.log(error)
+//   }
+// }
+// start()
 module.exports = user;

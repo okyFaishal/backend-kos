@@ -1,11 +1,31 @@
-let cek = 1
-console.log(Number.isInteger(100))
-console.log(Number.isInteger('100'))
-console.log(Number.isInteger(parseInt(100)))
-console.log(Number.isInteger(parseInt('100')))
-console.log(Number.isInteger(parseInt('as100')))
-console.log(typeof 100)
-console.log(typeof '100')
+// let array = [1, 2, 3, ,4, 5, ,6]
+// array.forEach(element => {
+//   if(element == 3) 
+//   // break;
+
+// });
+
+
+// console.log(typeof (new Date().valueOf()+''))
+// console.log({
+//   name: 'mona',
+//   email: this.name
+// })
+
+// const mom
+
+// require('dotenv').config()
+// console.log(process.env)
+
+
+// let cek = 1
+// console.log(Number.isInteger(100))
+// console.log(Number.isInteger('100'))
+// console.log(Number.isInteger(parseInt(100)))
+// console.log(Number.isInteger(parseInt('100')))
+// console.log(Number.isInteger(parseInt('as100')))
+// console.log(typeof 100)
+// console.log(typeof '100')
 
 // let mona = {halo: "hai dunia", angka: 123}
 // console.log(mona)
@@ -13,6 +33,9 @@ console.log(typeof '100')
 // console.log(mona.test)
 
 // const moment = require('moment')
+// console.log(moment())
+// console.log(moment() > moment())
+// console.log(moment() > new Date())
 // console.log(new Date())
 // console.log(typeof new Date())
 // console.log(moment('2020-02-29').add(12, 'months'))
