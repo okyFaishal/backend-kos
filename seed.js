@@ -28,12 +28,12 @@ async function start(){
         public_gender: acak(true, false),
         image_profile: 'default.jpg',
         image_ktp: 'default.jpg',
-        status_user: true,
+        status_user: false,
         username,
         email,
         verify_email: acak(true, false),
         contact,
-        password: 'admin',
+        password: '$2a$10$5z/eRjrluqOEatQ7ul7b9.y7VkrfYPx6sEAFvtThH7SQ6y8cmU6Zm',
         nik,
         birth_place: acak('semarang', 'bandung', 'surabaya', 'jakarta', 'yogyakarta', 'merauke', 'beijing'),
         birth_date: new Date(),
@@ -59,7 +59,7 @@ async function start(){
     //room
     let dataRoom = []
     resultBuild.forEach(el => {
-      for (let i = 0; i < 2; i++) {
+      for (let i = 0; i < 5; i++) {
         dataRoom.push({
           build_id: el.id,
           name: i,
@@ -91,7 +91,7 @@ async function start(){
           let historyNew = {user_id: elUser.id, room_id: elRoom.id, package_id: pack.id, start_kos, pay}
           for (let i = dataHistory.length - 1; i >= 0; i--) {
             const elHistory = dataHistory[i];
-            if(elHistory.room_id == elRoom.id){
+            if(elHistory.room_id == elRoom.id || elHistory.user_id == elUser.id){
               historyNew.start_kos = moment(elHistory.start_kos).subtract(pack.duration, 'month')
               break;
             }

@@ -16,10 +16,11 @@
 
 - tanggal pembayaran bisa dicustom atau tidak?, create maupun update
 
-note
+list
 - bagian valid otp perlu direvisi
 - bagian user(yang ngekos) perlu disambungkan dengan history saat ini
-- admin bisa mengedit profile user
 - user bisa melihat user lain dalam 1 bangunan
 - mengubah daftar pembayaran menjadi exel
-- change password
+- menambahkan data user pada show payment
+- admin bisa membuat akun admin lain
+- seed perlu revisi, user negkos di kamar yang berbeda dalam satu waktu

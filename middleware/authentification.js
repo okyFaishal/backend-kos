@@ -6,7 +6,7 @@ async function authentification(req, res, next){
     const {token} = req.headers
     if(token){
       req.dataToken = verifyToken(token)
-      req.dataUsers = await user.findOne({where: {id: req.dataToken.id}})
+      req.dataUsers = await user.findOne({where: {email: req.dataToken.email}})
       if(!req.dataUsers) throw ''
       req.dataUsers = req.dataUsers.dataValues
       next()

@@ -54,7 +54,7 @@ async function admin(){
       email: 'admin@gmail.com',
       verify_email: false,
       contact: 123456123456,
-      password: 'admin',
+      password: '$2a$10$5z/eRjrluqOEatQ7ul7b9.y7VkrfYPx6sEAFvtThH7SQ6y8cmU6Zm',
       nik: 1234567812345678,
       birth_place: 'admin',
       birth_date: new Date(),

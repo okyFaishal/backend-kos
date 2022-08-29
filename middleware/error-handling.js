@@ -21,7 +21,7 @@ module.exports = (result, req, res, next) => {
           else result.message = error.errors[0].message
         }
       }
-      if(result.message != message) result.data = undefined
+      if(result.message != message) {result.data = undefined; result.status = 400}
     }
   }else{ //error sistem/server
     result = {status: 500, message: 'server error', data: result}
