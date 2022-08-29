@@ -1,0 +1,25 @@
+- resolusi maksimal ktp?, 1000px?
+- resolusi profile?, 200px x 200px?, perbesar(crop) atau perkecil(sisa diberikan backround color misal)
+- religion berisi agama resmi indonesia?, atau bisa diisi seperti atheis?, yahudi, dll => agama indonesia
+- gender hanya berisi laki laki dan perempuan?, tidak boleh dikosongkan?, atau tidak ingin memberitahu => laki laki / perempuan
+  - penamaan laki laki atau pria, dan perempuan atau wanita
+- untuk data nik hanya boleh diisi dengan no nik, atau bisa diisi dengan data lain seperti no sim/ no mahasiswa dll => nik saja
+  - jumlah huruf / angka pada nik harus tepat 16, atau tidak
+- untuk birth date terdapat minimal atau maksimal umur?, seperti min 17, max 100
+- jika terdapat mahasiswa yang bekerja atau sebaliknya, memilki status apa? => mahasiswa
+  - seorang mahasiswa bisa menuliskan nama perusahaan dimana ia bekerja, dan sebaliknya
+- bisa menghapus sebuah acount? => tidak
+  - jika iya, apakah akun admin bisa dihapus?
+- apakah admin bisa membuat akun admin lainya/baru => bisa
+
+==
+
+- tanggal pembayaran bisa dicustom atau tidak?, create maupun update
+
+note
+- bagian valid otp perlu direvisi
+- bagian user(yang ngekos) perlu disambungkan dengan history saat ini
+- admin bisa mengedit profile user
+- user bisa melihat user lain dalam 1 bangunan
+- mengubah daftar pembayaran menjadi exel
+- change password
