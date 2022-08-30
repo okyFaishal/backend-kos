@@ -7,9 +7,62 @@ const room = require('../room/model');
 const { QueryTypes } = require('sequelize');
 // const sequelize = require('sequelize');
 const moment = require('moment')
+const XLSX = require("xlsx");
+const path = require("path");
+const fs = require("fs");
 
 
 class Controller {
+  static async exportXlsx(req, res, next) {
+    try {
+      let {user_id, history_id, pay, date, type} = req.body
+      let data = await sq.query(`
+        select 
+          u.username , u.email , u.status ,
+          p."type" as "type payment", p."date" ,
+          p2."name" as "package", p2.duration ,
+          b.name as "build", b.address,
+          r."name" as "room", r."size" , r.price as "price room",
+          p.pay as "payment", h.pay as "total price", h.start_kos ,h.start_kos + interval '1 month' * p2.duration as "end_kos"
+        from payment p 
+          inner join "user" u on u.id = p.user_id
+          inner join history h on h.id = p.history_id  
+          inner join package p2 on p2.id = h.package_id 
+          inner join room r on r.id = h.room_id
+          inner join build b on b.id = r.build_id 
+        where p.deleted_at is null 
+        ${user_id?'and u.id = :user_id':''}  
+        ${history_id?'and p.history_id = :history_id':''}
+        ${pay?'and p.pay = :pay':''}
+        ${date?'and p.date = :date':''}
+        ${type?'and p.type = :type':''}
+        order by p."date" desc
+      `, {type: QueryTypes.SELECT, replacements: {user_id, history_id, pay, date, type}})
+      // Buat Workbook
+      const fileName = "payment";
+      let wb = XLSX.utils.book_new();
+      wb.Props = {
+        Title: fileName,
+        Author: "pero",
+        CreatedDate: new Date(),
+      };
+      // Buat Sheet
+      wb.SheetNames.push("Sheet 1");
+      // Buat Sheet dengan Data
+      let ws = XLSX.utils.json_to_sheet(data);
+      wb.Sheets["Sheet 1"] = ws;
+      // Cek apakah folder downloadnya ada
+      const downloadFolder = path.resolve(__dirname, "../../asset/downloads");
+      if (!fs.existsSync(downloadFolder)) {
+        fs.mkdirSync(downloadFolder);
+      }
+      XLSX.writeFile(wb, `${downloadFolder}${path.sep}${fileName}.xls`);
+      res.download(`${downloadFolder}${path.sep}${fileName}.xls`);
+      // res.status(200).json({status: 200, message: 'success show payment', data})
+    } catch (error) {
+      next({status: 500, data: error})
+    }
+  }
   static async showPayment(req, res, next) {
     try {
       let {user_id, history_id, pay, date, type} = req.body

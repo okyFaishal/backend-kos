@@ -72,8 +72,8 @@ async function start(){
 
     //package
     let dataPackage = [
-      {name: '1 tahun',description: 'kos selama setengah tahun', duration: 6, discount: 0},
-      {name: '6 bulan',description: 'kos selama setahun penuh, mendapatkan diskon 1 bulan gratis', duration: 12, discount: 1},
+      {name: '6 bulan',description: 'kos selama setengah tahun', duration: 6, discount: 0},
+      {name: '1 tahun',description: 'kos selama setahun penuh, mendapatkan diskon 1 bulan gratis', duration: 12, discount: 1},
     ]
     let resultPackage = await db.package.bulkCreate(dataPackage)
 
@@ -119,7 +119,7 @@ async function start(){
       }
     });
     let resultPayment = await db.payment.bulkCreate(dataPayment)
-    console.log(dataPayment.slice(0, 5))
+    // console.log(dataPayment.slice(0, 5))
   } catch (error) {
     console.log("error")
     console.log(error)

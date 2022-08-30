@@ -6,6 +6,7 @@ const upload = require('../../middleware/upload');
 // router.use(fileUpload());
 
 router.post("/register", upload, Controller.register);
+router.post("/register-admin", authentification, upload, Controller.registerAdmin);
 router.post("/login", Controller.login);
 router.put("/update-profile", authentification, upload, Controller.updateProfile);
 router.put("/update-user/:id", authentification, upload, Controller.updateUser);

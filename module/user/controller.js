@@ -68,6 +68,33 @@ class Controller {
       next({status: 500, data: error})
     }
   }
+  static async registerAdmin(req, res, next) {
+    try {
+      if(!req.dataUsers.status_user) throw {status: 403, message: 'tidak memiliki akses'}
+      const {username, email, contact, nik, birth_place, religion, gender, emergency_contact, emergency_name, status, name_company, name_university, major, degree, generation} = req.body
+      if(!(req.body.password && username && email)) throw {status: 400, message: 'Lengkapi Data'}
+      const birth_date = req.body.birth_date?new Date(req.body.birth_date):new Date()
+      const password = hashPassword(req.body.password)
+      const image_profile = req.files.image_profile ? req.files.image_profile[0].filename : undefined
+      const image_ktp = req.files.image_ktp ? req.files.image_ktp[0].filename : 'default.jpg'
+
+      if(contact && /\D/.test(contact)) throw {status: 400, message: 'contact tidak valid'}
+      else if(emergency_contact && /\D/.test(emergency_contact)) throw {status: 400, message: 'emergency contact tidak valid'}
+      else if(nik && /\D/.test(nik)) throw {status: 400, message: 'nik tidak valid'}
+      else if(generation && /\D/.test(generation)) throw {status: 400, message: 'generation tidak valid'}
+      else if(email && !/\w+@\w+\.\w+/.test(email)) throw {status: 400, message: 'email tidak valid'}
+      else if(status && !/mahasiswa|kerja/.test(status)) throw {status: 400, message: 'status tidak valid'}
+      else if(birth_date && birth_date == 'Invalid Date') throw {status: 400, message: 'birth date tidak valid'}
+      
+      const result = await user.create({status_user: true, image_profile, image_ktp, username, email, password, contact: contact||123456789012, nik: nik||12345678912345678, birth_place: birth_place||"indonesia", birth_date, religion: religion||"admin", gender: gender||"admin", emergency_contact, emergency_name, status: status||"admin", name_company, name_university, major, degree, generation})
+      result.dataValues.password = undefined
+      const token = generateToken(result.dataValues)
+
+      res.status(200).json({status: 200, message: 'success create acount admin', data: {...result.dataValues, token}})
+    } catch (error) {
+      next({status: 500, data: error})
+    }
+  }
   static async login(req, res, next) {
     try {
       const {email, password} = req.body 
