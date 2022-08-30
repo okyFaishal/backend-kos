@@ -13,19 +13,21 @@ class Controller {
   static async showPayment(req, res, next) {
     try {
       let {user_id, history_id, pay, date, type} = req.body
-      let where = {}
-      if(req.dataUsers.status_user){
-        if(user_id || history_id || pay || date || type){
-          if(user_id) where.user_id = user_id
-          if(history_id) where.history_id = history_id
-          if(pay) where.pay = pay
-          if(date) where.date = date
-          if(type) where.type = type
-        }else where = undefined
-      }else{
-        where = {user_id: req.dataUsers.id}
-      }
-      let result = await dbpayment.findAll({order: [['updated_at', 'DESC']], where})
+      let result = await sq.query(`
+        select 
+          u.image_profile , u.username , u.email , u.status,
+          p.pay , p."type" , p."date" 
+        from payment p 
+          inner join "user" u on u.id = p.user_id 
+        where p.deleted_at is null 
+        ${user_id?'and u.id = :user_id':''}  
+        ${history_id?'and p.history_id = :history_id':''}
+        ${pay?'and p.pay = :pay':''}
+        ${date?'and p.date = :date':''}
+        ${type?'and p.type = :type':''}
+        order by p.updated_at desc
+      `, {type: QueryTypes.SELECT, replacements: {user_id, history_id, pay, date, type}})
+      // let result = await dbpayment.findAll({order: [['updated_at', 'DESC']], where})
       res.status(200).json({status: 200, message: 'success show payment', data: result})
     } catch (error) {
       next({status: 500, data: error})

@@ -52,7 +52,7 @@ async function start(){
     //build
     let dataBuild = [
       {name: 'kos jaya', address: 'jalan kos jaya 1'},
-      // {name: 'kos makmur', address: 'jalan kos makmur 1'},
+      {name: 'kos makmur', address: 'jalan kos makmur 1'},
     ]
     let resultBuild = await db.build.bulkCreate(dataBuild)
 
