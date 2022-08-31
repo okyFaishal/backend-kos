@@ -21,3 +21,4 @@ list
 - bagian user(yang ngekos) perlu disambungkan dengan history saat ini
 - mengubah daftar pembayaran menjadi exel
 - seed perlu revisi, user negkos di kamar yang berbeda dalam satu waktu
+- menambahkan type discount dan discount pada history

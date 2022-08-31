@@ -21,6 +21,12 @@ const history = sq.define(
       type: DataTypes.INTEGER,
       allowNull: false,
     },
+    type_discount: {
+      type: DataTypes.STRING,
+    },
+    discount: {
+      type: DataTypes.INTEGER,
+    },
     start_kos:{
       type:DataTypes.DATE,
       allowNull: false,

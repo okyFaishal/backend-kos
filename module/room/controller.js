@@ -7,7 +7,7 @@ const { QueryTypes } = require('sequelize');
 class Controller {
   static async showRoom(req, res, next){
     try {
-      const {build_id} = req.body
+      const {build_id} = req.query
       let result = await sq.query(`
         select r.id as "room_id", r.build_id, b.name as "build_name", b.address, r.name, r.size, r.price, h.start_kos ,h.start_kos + interval '1 month' * p.duration as "end_kos"
         from room r 

@@ -65,23 +65,60 @@ class Controller {
   }
   static async showPayment(req, res, next) {
     try {
-      let {user_id, history_id, pay, date, type} = req.body
+      let {user_id, history_id, build_id, pay, date, type, mode} = req.query
       let result = await sq.query(`
         select 
-          u.image_profile , u.username , u.email , u.status,
-          p.pay , p."type" , p."date" 
+          ${mode != 'export'?'u.id as user_id, p.id as payment_id, h.id as history_id, p2.id as package_id, r.id as room_id, b.id as build_id, ':''}
+          u.username , u.email , u.status ,
+          p."type" as "type payment", p."date" ,
+          p2."name" as "package", p2.duration ,
+          b.name as "build", b.address,
+          r."name" as "room", r."size", r.price as "price_room",
+          h.type_discount, h.discount, h.pay as "total_price", 
+          p.pay as "payment", sum(p3.pay) as "total_payment", (h.pay - sum(p3.pay)) as "deficiency", p."type", p."date" ,
+          h.start_kos ,h.start_kos + interval '1 month' * p2.duration as "end_kos"
         from payment p 
-          inner join "user" u on u.id = p.user_id 
+          inner join "user" u on u.id = p.user_id
+          inner join history h on h.id = p.history_id  
+          inner join package p2 on p2.id = h.package_id 
+          inner join room r on r.id = h.room_id
+          inner join build b on b.id = r.build_id 
+          left join payment p3 on p3.history_id = h.id and p3."date" <= p."date" 
         where p.deleted_at is null 
         ${user_id?'and u.id = :user_id':''}  
         ${history_id?'and p.history_id = :history_id':''}
-        ${pay?'and p.pay = :pay':''}
-        ${date?'and p.date = :date':''}
+        ${build_id?'and b.build_id = :build_id':''}
         ${type?'and p.type = :type':''}
-        order by p.updated_at desc
+        group by p.id, u.id, h.id, p2.id, r.id, b.id
+        order by p.date desc
       `, {type: QueryTypes.SELECT, replacements: {user_id, history_id, pay, date, type}})
-      // let result = await dbpayment.findAll({order: [['updated_at', 'DESC']], where})
-      res.status(200).json({status: 200, message: 'success show payment', data: result})
+      if(result.length == 0) throw {status: 402, message: 'data tidak ditemukan'}
+      switch (mode) {
+        case 'export':
+          const fileName = "payment";
+          let wb = XLSX.utils.book_new();
+          wb.Props = {
+            Title: fileName,
+            Author: "pero",
+            CreatedDate: new Date(),
+          };
+          // Buat Sheet
+          wb.SheetNames.push("Sheet 1");
+          // Buat Sheet dengan Data
+          let ws = XLSX.utils.json_to_sheet(result);
+          wb.Sheets["Sheet 1"] = ws;
+          // Cek apakah folder downloadnya ada
+          const downloadFolder = path.resolve(__dirname, "../../asset/downloads");
+          if (!fs.existsSync(downloadFolder)) {
+            fs.mkdirSync(downloadFolder);
+          }
+          XLSX.writeFile(wb, `${downloadFolder}${path.sep}${fileName}.xls`);
+          res.download(`${downloadFolder}${path.sep}${fileName}.xls`);
+          break;
+        default:
+          res.status(200).json({status: 200, message: 'success show payment', data: result})
+          break;
+      }
     } catch (error) {
       next({status: 500, data: error})
     }
@@ -89,19 +126,18 @@ class Controller {
   static async createPaymentDp(req, res, next) {
     const t = await sq.transaction();
     try {
-      let {user_id, package_id, room_id, payment, total_payment, start_kos, date} = req.body
+      let {user_id, package_id, room_id, payment, discount, type_discount, start_kos, date} = req.body
       start_kos = moment(start_kos).utc()
       date = date ? moment(date).utc() : moment().utc()
       if(!req.dataUsers.status_user) throw {status: 403, message: 'tidak memiliki akses'}
-      if(!(user_id && package_id && room_id && payment && total_payment && start_kos && date)) throw {status: 400, message: 'lengkapi data'}
+      if(!(user_id && package_id && room_id && payment && discount && type_discount && start_kos && date)) throw {status: 400, message: 'lengkapi data'}
       if(user_id && (/\D/.test(user_id))) throw {status: 400, message: 'user id tidak valid'}
       if(package_id && (/\D/.test(package_id))) throw {status: 400, message: 'package id tidak valid'}
       if(room_id && (/\D/.test(room_id))) throw {status: 400, message: 'room id tidak valid'}
       if(payment && (/\D/.test(payment))) throw {status: 400, message: 'payment tidak valid'}
-      if(total_payment && (/\D/.test(total_payment))) throw {status: 400, message: 'total payment tidak valid'}
+      if(discount && (/\D/.test(discount))) throw {status: 400, message: 'discount tidak valid'}
       payment = Number.parseInt(payment)
-      total_payment = Number.parseInt(total_payment)
-      if(payment > total_payment) throw {status: 400, message: 'pembayaran melebihi jumlah yang harus dibayarkan'}
+      discount = Number.parseInt(discount)
       if(/Invalid date/i.test(start_kos)) throw {status: 400, message: 'start kos tidak valid'}
       if(/Invalid date/i.test(date)) throw {status: 400, message: 'date tidak valid'}
 
@@ -129,14 +165,33 @@ class Controller {
       })
       // throw {status: 400, message: result}
       if(result.length == 0) throw {status: 402, message: 'user, package, dan room tidak ditemukan'}
+      let total_payment = result[0].price * result[0].duration
+      switch (type_discount) {
+        case '%':
+          if(discount > 100) throw {status: 400, message: 'discount melebihi 100%'}
+          data.pay -= data.pay * (discount / 100)
+          break;
+        case 'month':
+          if(discount > result[0].duration) throw {status: 400, message: 'discount melebihi durasi kos'}
+          total_payment -= (result[0].price * discount)
+          break;
+        case 'nominal':
+          if(discount > total_payment) throw {status: 400, message: 'discount melebihi total pembayaran'}
+          total_payment -= discount
+          break;
+        default:
+          type_discount = null
+          break;
+      }
+      if(payment > total_payment) throw {status: 400, message: 'pembayaran melebihi jumlah yang harus dibayarkan'}
       if(!result[0].user_id) throw {status: 402, message: 'user tidak ditemukan'}
       if(!result[0].package_id) throw {status: 402, message: 'package tidak ditemukan'}
       if(!result[0].room_id) throw {status: 402, message: 'room tidak ditemukan'}
-      if(result[0].price >= total_payment && result[0].price > payment) throw {status: 400, message: 'dp minimal ' + payment}
+      if(result[0].price < total_payment && result[0].price > payment) throw {status: 400, message: 'dp minimal ' + result[0].price}
       if(result[0].status_user) throw {status: 400, message: 'admin tidak bisa memesan'}
       if(result[0].start_kos) throw {status: 400, message: 'dalam waktu tersebut kamar masih terisi'}
 
-      let resultHistory = await history.create({user_id, package_id, room_id, start_kos, pay: total_payment}, {transaction: t})
+      let resultHistory = await history.create({user_id, package_id, room_id, start_kos, pay: total_payment, type_discount, discount}, {transaction: t})
       if(!resultHistory) throw {status: 400, message: 'gagal melakukan pemesanan'}
       let resultPayment = await dbpayment.create({user_id, history_id: resultHistory.id, pay: payment, date, type: 'dp'}, {transaction: t})
       if(!resultPayment) throw {status: 400, message: 'gagal melakukan pembayaran'}
