@@ -9,7 +9,7 @@ class Controller {
     try {
       const {build_id} = req.query
       let result = await sq.query(`
-        select r.id as "room_id", r.build_id, b.name as "build_name", b.address, r.name, r.size, r.price, h.start_kos ,h.start_kos + interval '1 month' * p.duration as "end_kos"
+        select r.id as "room_id", r.build_id, b.name as "build_name", b.address, r.name, r.size, r.price, h.start_kos ,h.start_kos + interval '1 month' * p.duration - interval '1 day' as "end_kos"
         from room r 
           inner join build b on b.id = r.build_id and b.deleted_at is null
           left join history h on h.room_id = r.id and h.deleted_at is null and start_kos < now() and h.start_kos + interval '1 month' * (select p2.duration from package p2 where p2.id = h.package_id and p2.deleted_at is null limit 1) > now()

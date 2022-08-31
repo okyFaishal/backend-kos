@@ -1,4 +1,5 @@
 const sq = require('../../config/connection');
+const writeExcel = require('../../helper/write-exel')
 // const {sequelize} = require('../../config/connection');
 const dbpayment = require('./model');
 const history = require('../history/model');
@@ -10,7 +11,6 @@ const moment = require('moment')
 const XLSX = require("xlsx");
 const path = require("path");
 const fs = require("fs");
-
 
 class Controller {
   static async exportXlsx(req, res, next) {
@@ -76,7 +76,7 @@ class Controller {
           r."name" as "room", r."size", r.price as "price_room",
           h.type_discount, h.discount, h.pay as "total_price", 
           p.pay as "payment", sum(p3.pay) as "total_payment", (h.pay - sum(p3.pay)) as "deficiency", p."type", p."date" ,
-          h.start_kos ,h.start_kos + interval '1 month' * p2.duration as "end_kos"
+          h.start_kos ,h.start_kos + interval '1 month' * p2.duration - interval '1 day' as "end_kos"
         from payment p 
           inner join "user" u on u.id = p.user_id
           inner join history h on h.id = p.history_id  
@@ -95,6 +95,10 @@ class Controller {
       if(result.length == 0) throw {status: 402, message: 'data tidak ditemukan'}
       switch (mode) {
         case 'export':
+          // let write = writeExcel('payment', result)
+          // console.log(write.error)
+          // if(!write.status) throw {status: 500, data: write.error, message: 'gagal membuat file excel'}
+          // res.download(write.fileName);
           const fileName = "payment";
           let wb = XLSX.utils.book_new();
           wb.Props = {
@@ -119,6 +123,7 @@ class Controller {
           res.status(200).json({status: 200, message: 'success show payment', data: result})
           break;
       }
+      
     } catch (error) {
       next({status: 500, data: error})
     }
@@ -143,28 +148,43 @@ class Controller {
 
       let result = await sq.query(`
         select 
-          u.status_user,
+          u.status_user, 
           u.id as "user_id",
           p.id as "package_id",
           r.id as "room_id",
           r.price,
-          h.start_kos,
-          p.duration 
-        from "user" u
-          full join package p on p.id = :package_id and p.deleted_at is null
-          full join room r on r.id = :room_id and r.deleted_at is null
-          full join history h on h.package_id = p.id and h.room_id = r.id and h.deleted_at is null and 
-            (timestamp :start_kos >= h.start_kos and timestamp :start_kos <= h.start_kos + interval '1 month' * p.duration) or
-            (timestamp :start_kos + interval '1 month' * p.duration > h.start_kos and timestamp :start_kos + interval '1 month' * p.duration < h.start_kos + interval '1 month' * p.duration) or
-            (h.start_kos < timestamp :start_kos and h.start_kos + interval '1 month' * p.duration > timestamp :start_kos + interval '1 month' * p.duration)
-          where u.id = :user_id
-        order by h.start_kos desc
+          p.duration,
+          p.discount 
+        from "user" u 
+          left join package p on p.deleted_at is null and p.id = :package_id
+          left join room r on r.deleted_at is null and r.id = :room_id
+        where u.id = :user_id
       `,{
-        replacements: {user_id, package_id, room_id, start_kos: start_kos.format()},
+        replacements: {user_id, package_id, room_id},
         type: QueryTypes.SELECT
       })
-      // throw {status: 400, message: result}
-      if(result.length == 0) throw {status: 402, message: 'user, package, dan room tidak ditemukan'}
+      if(result.length == 0) throw {status: 402, message: 'room tidak ditemukan'}
+      if(!result[0].package_id) throw {status: 402, message: 'package tidak ditemukan'}
+      if(!result[0].room_id) throw {status: 402, message: 'room tidak ditemukan'}
+      if(result[0].status_user) throw {status: 400, message: 'admin tidak bisa memesan'}
+
+      //chek room
+      let result1 = await sq.query(`
+        select 
+          r.price,
+          h.start_kos,
+          p.duration,
+          p.discount 
+        from history h 
+          inner join package p on h.room_id = :room_id and p.id = h.package_id and p.deleted_at is null
+          inner join room r on r.id = h.room_id  and h.deleted_at is null and
+              (timestamp :start_kos < h.start_kos + interval '1 month' * p.duration and timestamp :start_kos + interval '1 month' * p.duration > h.start_kos) 
+      `,{
+        replacements: {room_id, start_kos: start_kos.format()},
+        type: QueryTypes.SELECT
+      })
+      if(result1.length) throw {status: 402, message: 'dalam waktu tersebut kamar masih terisi'}
+
       let total_payment = result[0].price * result[0].duration
       switch (type_discount) {
         case '%':
@@ -180,16 +200,18 @@ class Controller {
           total_payment -= discount
           break;
         default:
-          type_discount = null
+          if(result[0].discount){
+            type_discount = 'month'
+            discount = result[0].discount
+            total_payment -= (result[0].price * result[0].discount)
+          }else{
+            type_discount = null
+            discount = null
+          }
           break;
       }
       if(payment > total_payment) throw {status: 400, message: 'pembayaran melebihi jumlah yang harus dibayarkan'}
-      if(!result[0].user_id) throw {status: 402, message: 'user tidak ditemukan'}
-      if(!result[0].package_id) throw {status: 402, message: 'package tidak ditemukan'}
-      if(!result[0].room_id) throw {status: 402, message: 'room tidak ditemukan'}
       if(result[0].price < total_payment && result[0].price > payment) throw {status: 400, message: 'dp minimal ' + result[0].price}
-      if(result[0].status_user) throw {status: 400, message: 'admin tidak bisa memesan'}
-      if(result[0].start_kos) throw {status: 400, message: 'dalam waktu tersebut kamar masih terisi'}
 
       let resultHistory = await history.create({user_id, package_id, room_id, start_kos, pay: total_payment, type_discount, discount}, {transaction: t})
       if(!resultHistory) throw {status: 400, message: 'gagal melakukan pemesanan'}

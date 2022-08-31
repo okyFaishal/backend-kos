@@ -20,7 +20,7 @@ class Controller {
           b."name" as build_name, b.address ,
           r."name" as room_name, r."size" , 
           p.description , p.duration , p.discount as package_discount,
-          h.type_discount , h.discount history_discount, h.start_kos , h.start_kos + interval '1 month' * p.duration as "end_kos",
+          h.type_discount , h.discount history_discount, h.start_kos , h.start_kos + interval '1 month' * p.duration - interval '1 day' as "end_kos",
           r.price as "price_room", h.pay as "total_price", sum(p2.pay) as "total_payment", (h.pay - sum(p2.pay)) as "deficiency"
         from history h
           inner join "user" u on u.id = h.user_id 
