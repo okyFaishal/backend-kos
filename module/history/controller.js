@@ -1,4 +1,5 @@
 const sq = require('../../config/connection');
+const writeExcel = require('../../helper/write-exel')
 const history = require('./model');
 const payment = require('../payment/model');
 const room = require('../room/model');
@@ -10,22 +11,23 @@ const moment = require('moment')
 class Controller {
   static async showHistory(req, res, next) {
     try {
-      let {user_id, room_id, package_id} = req.query
-      req.dataUsers.status_user?true:user_id = req.dataUsers.id
+      let {user_id, room_id, package_id, mode} = req.query
+      // req.dataUsers.status_user?true:user_id = req.dataUsers.id
 
       let result = await sq.query(`
         select 
-          h.id as history_id, u.id as user_id, r.id as room_id, b.id as build_id, p.id as package_id,
-          u.image_profile , u.email ,
+          ${mode=='export'?'':'h.id as history_id, u.id as user_id, r.id as room_id, b.id as build_id, p.id as package_id, u.image_profile, '}
+          u.email ,
           b."name" as build_name, b.address ,
           r."name" as room_name, r."size" , 
-          p.description , p.duration , p.discount as package_discount,
-          h.type_discount , h.discount history_discount, h.start_kos , h.start_kos + interval '1 month' * p.duration - interval '1 day' as "end_kos",
-          r.price as "price_room", h.pay as "total_price", sum(p2.pay) as "total_payment", (h.pay - sum(p2.pay)) as "deficiency"
+          p.description , p.duration ,
+          h.type_discount, h.discount as discount, 
+          r.price as "price_room", h.pay as "total_price", sum(p2.pay)::integer as "total_payment", (h.pay - sum(p2.pay))::integer as "deficiency",
+          h.start_kos , h.start_kos + interval '1 month' * p.duration - interval '1 day' as "end_kos"
         from history h
           inner join "user" u on u.id = h.user_id 
           inner join room r on r.deleted_at is null and r.id = h.room_id 
-          inner join build b on b.deleted_at is null and b.id = r.id 
+          inner join build b on b.deleted_at is null and b.id = r.build_id
           inner join package p on p.deleted_at is null and p.id = h.package_id 
           left join payment p2 on p2.deleted_at is null and p2.history_id  = h.id 
         where h.deleted_at is null ${user_id?'and u.id=:user_id':''} ${room_id?'and r.id=:room_id':''} ${package_id?'and p.id=:package_id':''}
@@ -37,7 +39,16 @@ class Controller {
       })
       // throw {status: 400, message: result}
       if(result.length == 0) throw {status: 402, message: 'data tidak ditemukan'}
-      res.status(200).json({status: 200, message: 'success show room', data: result})
+      switch (mode) {
+        case 'export':
+          let write = await writeExcel('history', result)
+          if(!write.status) throw {status: 500, data: write.error, message: 'gagal membuat file excel'}
+          res.download(write.data);
+          break;
+        default:
+          res.status(200).json({status: 200, message: 'success show history', data: result})
+          break;
+      }
     } catch (error) {
       next({status: 500, data: error})
     }

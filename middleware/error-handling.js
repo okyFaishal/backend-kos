@@ -9,7 +9,8 @@ module.exports = (result, req, res, next) => {
       let message = result.message
       let error = result.data
       //error sequelize / database
-      if(error.status && Number.isInteger(parseInt(error.status)) && parseInt(error.status) >= 0 && parseInt(error.status) <= 500){
+      console.log(error)
+      if(error.status && error.message && Number.isInteger(parseInt(error.status)) && parseInt(error.status) >= 0 && parseInt(error.status) <= 500){
         if(error.status) result.status = error.status
         if(error.message) result.message = error.message
         if(error.data) result.data = error.data

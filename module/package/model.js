@@ -17,6 +17,7 @@ const package = sq.define(
     },
     discount: {
       type: DataTypes.INTEGER,
+      defaultValue: 0
     },
     created_at: {
       allowNull: false,

@@ -15,6 +15,7 @@
 ==
 
 - tanggal pembayaran bisa dicustom atau tidak?, create maupun update
+- jika user sudah memesan kos dengan durasi 5 agustus 2021 - 4 agustus 2022 dan waktu saat ini 1 agustus 2022, dia akan membeli 
 
 list
 - bagian valid otp perlu direvisi

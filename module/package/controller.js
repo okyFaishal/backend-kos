@@ -14,11 +14,16 @@ class Controller {
   }
   static async createPackage(req, res, next){
     try {
-      const {name, description, discount, duration} = req.body
+      let {name, description, discount, duration} = req.body
       if(!req.dataUsers.status_user) throw {status: 403, message: 'tidak memiliki akses'}
       if(!(name && duration)) throw {status: 400, message: 'lengkapi data'}
-      if(duration && /\D/.test(duration)) throw {status: 400, message: 'duration tidak valid'}
-      if(discount && (/\D/.test(discount) || discount > duration)) throw {status: 400, message: 'discount tidak valid'}
+      if(/\D/.test(duration)) throw {status: 400, message: 'duration tidak valid'}
+      duration = Number.parseInt(duration)
+      if(discount){
+        if(/\D/.test(discount)) throw {status: 400, message: 'discount tidak valid'}
+        discount = Number.parseInt(discount)
+        if(discount > duration) throw {status: 400, message: 'discount tidak valid'}
+      } 
 
       let result = await dbpackage.create({name, description, discount, duration})
       res.status(200).json({status: 200, message: 'success create package', data: result})
@@ -29,13 +34,18 @@ class Controller {
   static async updatePackage(req, res, next){
     try {
       const {id} = req.params
-      const {name, description, discount, duration} = req.body
+      let {name, description, discount, duration} = req.body
       if(!req.dataUsers.status_user) throw {status: 403, message: 'tidak memiliki akses'}
       if(!id) throw {status: 400, message: 'masukkan id yang akan diupdate'}
       if(!(name || description || discount || duration)) throw {status: 400, message: 'tidak ada yang diupdate'}
-      if(duration && /\D/.test(duration)) throw {status: 400, message: 'duration tidak valid'}
+      if(duration) {
+        if(/\D/.test(duration)) throw {status: 400, message: 'duration tidak valid'}
+        duration = Number.parseInt(duration)
+      }
       if(discount) {
-        if(/\D/.test(discount) || (duration && discount > duration)) throw {status: 400, message: 'discount tidak valid'}
+        if(/\D/.test(discount)) throw {status: 400, message: 'discount tidak valid'}
+        discount = Number.parseInt(discount)
+        if(discount > duration) throw {status: 400, message: 'discount tidak valid'}
         //cek database duration
         let result = await dbpackage.findOne({where: {id}})
         if(!result) throw {status: 400, message: 'tidak menemukan data yang akan diupdate'}

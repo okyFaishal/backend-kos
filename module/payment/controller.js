@@ -11,71 +11,204 @@ const moment = require('moment')
 const XLSX = require("xlsx");
 const path = require("path");
 const fs = require("fs");
+const Excel = require('exceljs');
 
 class Controller {
   static async exportXlsx(req, res, next) {
     try {
-      let {user_id, history_id, pay, date, type} = req.body
-      let data = await sq.query(`
+      let {user_id, history_id, build_id, package_id, room_id, pay, date, type} = req.query
+      // req.dataUsers.status_user?true:user_id = req.dataUsers.id
+      let result = await sq.query(`
         select 
-          u.username , u.email , u.status ,
-          p."type" as "type payment", p."date" ,
+          u.id as user_id, p.id as payment_id, h.id as history_id, p2.id as package_id, r.id as room_id, b.id as build_id, u.image_profile,
+          b."name" as "build", b.address,
           p2."name" as "package", p2.duration ,
-          b.name as "build", b.address,
-          r."name" as "room", r."size" , r.price as "price room",
-          p.pay as "payment", h.pay as "total price", h.start_kos ,h.start_kos + interval '1 month' * p2.duration as "end_kos"
+          r."name" as "room", r."size", 
+          u.username , u.email , u.status ,
+          h.type_discount, h.discount,
+          r.price as "price_room", h.pay as "total_price", p.pay as "payment", (sum(p3.pay))::integer as "total_payment", (h.pay - sum(p3.pay)::integer) as "deficiency", 
+          p."type" as "type_payment", p."date" ,
+          h.start_kos ,h.start_kos + interval '1 month' * p2.duration - interval '1 day' as "end_kos"
         from payment p 
           inner join "user" u on u.id = p.user_id
           inner join history h on h.id = p.history_id  
           inner join package p2 on p2.id = h.package_id 
           inner join room r on r.id = h.room_id
           inner join build b on b.id = r.build_id 
+          left join payment p3 on p3.history_id = h.id and p3."date" <= p."date" 
         where p.deleted_at is null 
         ${user_id?'and u.id = :user_id':''}  
+        ${room_id?'and r.id=:room_id':''} 
+        ${package_id?'and p.id=:package_id':''}
         ${history_id?'and p.history_id = :history_id':''}
-        ${pay?'and p.pay = :pay':''}
-        ${date?'and p.date = :date':''}
+        ${build_id?'and b.build_id = :build_id':''}
         ${type?'and p.type = :type':''}
-        order by p."date" desc
+        group by p.id, u.id, h.id, p2.id, r.id, b.id
+        order by p.date desc
       `, {type: QueryTypes.SELECT, replacements: {user_id, history_id, pay, date, type}})
-      // Buat Workbook
-      const fileName = "payment";
-      let wb = XLSX.utils.book_new();
-      wb.Props = {
-        Title: fileName,
-        Author: "pero",
-        CreatedDate: new Date(),
-      };
-      // Buat Sheet
-      wb.SheetNames.push("Sheet 1");
-      // Buat Sheet dengan Data
-      let ws = XLSX.utils.json_to_sheet(data);
-      wb.Sheets["Sheet 1"] = ws;
-      // Cek apakah folder downloadnya ada
+      if(result.length == 0) throw {status: 402, message: 'data tidak ditemukan'}
+
+      //export excel
+      const workbook = new Excel.Workbook();
+      const worksheet = workbook.addWorksheet('Payment');
+      worksheet.columns = [
+        {header: 'Build', key: 'build', width: 15},
+        {header: 'Address', key: 'address', width: 20},
+        {header: 'Package', key: 'package', width: 12},
+        {header: 'Duration', key: 'duration', width: 13},
+        {header: 'Room', key: 'room', width: 10},
+        {header: 'Size', key: 'size', width: 10},
+        {header: 'Username', key: 'username', width: 15},
+        {header: 'Email', key: 'email', width: 25},
+        {header: 'Status', key: 'status', width: 10},
+        {header: 'Type Discount', key: 'type_discount', width: 15},
+        {header: 'Discount', key: 'discount', width: 15},
+        {header: 'Price Room', key: 'price_room', width: 17},
+        {header: 'Total Price', key: 'total_price', width: 17},
+        {header: 'Payment', key: 'payment', width: 17},
+        {header: 'Total Payment', key: 'total_payment', width: 17},
+        {header: 'Deficiency', key: 'deficiency', width: 17},
+        {header: 'Type Payment', key: 'type_payment', width: 16},
+        {header: 'Date', key: 'date', width: 19},
+        {header: 'Start Kos', key: 'start_kos', width: 19},
+        {header: 'End Kos', key: 'end_kos', width: 19 }
+      ]
+      for (const row of result) {
+        worksheet.addRow(row);
+      }
+      const endRow = worksheet.lastRow.number + 1;
+      worksheet.autoFilter = 'A1:T1';
+      let firstRow = worksheet.getRow(1)
+      firstRow.height = 20
+      firstRow.eachCell((cell, i)=>{
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'f5b914' }
+        }
+        cell.num
+      })
+      firstRow.commit()
+      worksheet.getColumn('price_room').numFmt = '_-Rp* #,##0_-;-Rp* #,##0_-;_-Rp* "-"_-;_-@_-'
+      worksheet.getColumn('total_price').numFmt = '_-Rp* #,##0_-;-Rp* #,##0_-;_-Rp* "-"_-;_-@_-'
+      worksheet.getColumn('payment').numFmt = '_-Rp* #,##0_-;-Rp* #,##0_-;_-Rp* "-"_-;_-@_-'
+      worksheet.getColumn('total_payment').numFmt = '_-Rp* #,##0_-;-Rp* #,##0_-;_-Rp* "-"_-;_-@_-'
+      worksheet.getColumn('deficiency').numFmt = '_-Rp* #,##0_-;-Rp* #,##0_-;_-Rp* "-"_-;_-@_-'
+      worksheet.getColumn('date').numFmt = `[$-en-ID]dd mmmm yyyy`
+      worksheet.getColumn('start_kos').numFmt = `[$-en-ID]dd mmmm yyyy`
+      worksheet.getColumn('end_kos').numFmt = `[$-en-ID]dd mmmm yyyy`
+      worksheet.addRow({
+        // price_room: { formula: `SUM(L2:L${endRow - 1})` },
+        // total_price: { formula: `SUM(M2:M${endRow - 1})` },
+        payment: { formula: `SUM(N2:N${endRow - 1})` },
+        // total_payment: { formula: `SUM(O2:O${endRow - 1})` },
+        // deficiency: { formula: `SUM(P2:P${endRow - 1})` },
+      });
+      
+      //========== history ==========
+      result = await sq.query(`
+        select 
+          h.id as history_id, u.id as user_id, r.id as room_id, b.id as build_id, p.id as package_id, u.image_profile,
+          u.username , u.email , u.status ,
+          b."name" as build, b.address ,
+          r."name" as room, r."size" , 
+          p.description , p.duration , p."name" as "package",
+          h.type_discount, h.discount, 
+          r.price as "price_room", h.pay as "total_price", sum(p2.pay)::integer as "total_payment", (h.pay - sum(p2.pay))::integer as "deficiency",
+          h.start_kos , h.start_kos + interval '1 month' * p.duration - interval '1 day' as "end_kos"
+        from history h
+          inner join "user" u on u.id = h.user_id 
+          inner join room r on r.deleted_at is null and r.id = h.room_id 
+          inner join build b on b.deleted_at is null and b.id = r.build_id 
+          inner join package p on p.deleted_at is null and p.id = h.package_id 
+          left join payment p2 on p2.deleted_at is null and p2.history_id  = h.id 
+        where h.deleted_at is null 
+        ${user_id?'and u.id=:user_id':''} 
+        ${room_id?'and r.id=:room_id':''} 
+        ${package_id?'and p.id=:package_id':''}
+        ${history_id?'and h.id = :history_id':''}
+        ${build_id?'and b.build_id = :build_id':''}
+        group by h.id, u.id, r.id, b.id, p.id
+        order by h.updated_at desc
+      `,{
+        replacements: {user_id, package_id, room_id},
+        type: QueryTypes.SELECT
+      })
+      // throw {status: 400, message: result}
+      if(result.length == 0) throw {status: 402, message: 'data tidak ditemukan'}
+      const history = workbook.addWorksheet('History');
+      history.columns = [
+        {header: 'Build', key: 'build', width: 15},
+        {header: 'Address', key: 'address', width: 20},
+        {header: 'Package', key: 'package', width: 12},
+        {header: 'Duration', key: 'duration', width: 13},
+        {header: 'Room', key: 'room', width: 10},
+        {header: 'Size', key: 'size', width: 10},
+        {header: 'Username', key: 'username', width: 15},
+        {header: 'Email', key: 'email', width: 25},
+        {header: 'Status', key: 'status', width: 10},
+        {header: 'Type Discount', key: 'type_discount', width: 15},
+        {header: 'Discount', key: 'discount', width: 15},
+        {header: 'Price Room', key: 'price_room', width: 17},
+        {header: 'Total Price', key: 'total_price', width: 17},
+        {header: 'Total Payment', key: 'total_payment', width: 17},
+        {header: 'Deficiency', key: 'deficiency', width: 17},
+        {header: 'Start Kos', key: 'start_kos', width: 19},
+        {header: 'End Kos', key: 'end_kos', width: 19 }
+      ]
+      for (const row of result) {
+        history.addRow(row);
+      }
+      const endRowHistory = history.lastRow.number + 1;
+      history.autoFilter = 'A1:Q1';
+      let firstRowHistory = history.getRow(1)
+      firstRowHistory.height = 20
+      firstRowHistory.eachCell((cell, i)=>{
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'f5b914' }
+        }
+        cell.num
+      })
+      firstRowHistory.commit()
+      history.getColumn('price_room').numFmt = '_-Rp* #,##0_-;-Rp* #,##0_-;_-Rp* "-"_-;_-@_-'
+      history.getColumn('total_price').numFmt = '_-Rp* #,##0_-;-Rp* #,##0_-;_-Rp* "-"_-;_-@_-'
+      history.getColumn('total_payment').numFmt = '_-Rp* #,##0_-;-Rp* #,##0_-;_-Rp* "-"_-;_-@_-'
+      history.getColumn('deficiency').numFmt = '_-Rp* #,##0_-;-Rp* #,##0_-;_-Rp* "-"_-;_-@_-'
+      history.getColumn('start_kos').numFmt = `[$-en-ID]dd mmmm yyyy`
+      history.getColumn('end_kos').numFmt = `[$-en-ID]dd mmmm yyyy`
+      history.addRow({
+        // price_room: { formula: `SUM(L2:L${endRowHistory - 1})` },
+        // total_price: { formula: `SUM(M2:M${endRowHistory - 1})` },
+        total_payment: { formula: `SUM(N2:N${endRowHistory - 1})` },
+        // deficiency: { formula: `SUM(P2:P${endRowHistory - 1})` },
+      });
+
       const downloadFolder = path.resolve(__dirname, "../../asset/downloads");
       if (!fs.existsSync(downloadFolder)) {
         fs.mkdirSync(downloadFolder);
       }
-      XLSX.writeFile(wb, `${downloadFolder}${path.sep}${fileName}.xls`);
-      res.download(`${downloadFolder}${path.sep}${fileName}.xls`);
-      // res.status(200).json({status: 200, message: 'success show payment', data})
+      await workbook.xlsx.writeFile(`${downloadFolder}${path.sep}payment.xls`);
+      res.download(`${downloadFolder}${path.sep}payment.xls`);
     } catch (error) {
       next({status: 500, data: error})
     }
   }
   static async showPayment(req, res, next) {
     try {
-      let {user_id, history_id, build_id, pay, date, type, mode} = req.query
+      let {user_id, history_id, build_id, pay, date, type} = req.query
+      // req.dataUsers.status_user?true:user_id = req.dataUsers.id
       let result = await sq.query(`
         select 
-          ${mode != 'export'?'u.id as user_id, p.id as payment_id, h.id as history_id, p2.id as package_id, r.id as room_id, b.id as build_id, ':''}
-          u.username , u.email , u.status ,
-          p."type" as "type payment", p."date" ,
+          ${mode != 'export'?'u.id as user_id, p.id as payment_id, h.id as history_id, p2.id as package_id, r.id as room_id, b.id as build_id, u.image_profile, ':''}
+          b."name" as "build", b.address,
           p2."name" as "package", p2.duration ,
-          b.name as "build", b.address,
-          r."name" as "room", r."size", r.price as "price_room",
-          h.type_discount, h.discount, h.pay as "total_price", 
-          p.pay as "payment", sum(p3.pay) as "total_payment", (h.pay - sum(p3.pay)) as "deficiency", p."type", p."date" ,
+          r."name" as "room", r."size", 
+          u.username , u.email , u.status ,
+          h.type_discount, h.discount,
+          r.price as "price_room", h.pay as "total_price", p.pay as "payment", (sum(p3.pay))::integer as "total_payment", (h.pay - sum(p3.pay)::integer) as "deficiency", 
+          p."type" as "type_payment", p."date" ,
           h.start_kos ,h.start_kos + interval '1 month' * p2.duration - interval '1 day' as "end_kos"
         from payment p 
           inner join "user" u on u.id = p.user_id
@@ -93,37 +226,7 @@ class Controller {
         order by p.date desc
       `, {type: QueryTypes.SELECT, replacements: {user_id, history_id, pay, date, type}})
       if(result.length == 0) throw {status: 402, message: 'data tidak ditemukan'}
-      switch (mode) {
-        case 'export':
-          // let write = writeExcel('payment', result)
-          // console.log(write.error)
-          // if(!write.status) throw {status: 500, data: write.error, message: 'gagal membuat file excel'}
-          // res.download(write.fileName);
-          const fileName = "payment";
-          let wb = XLSX.utils.book_new();
-          wb.Props = {
-            Title: fileName,
-            Author: "pero",
-            CreatedDate: new Date(),
-          };
-          // Buat Sheet
-          wb.SheetNames.push("Sheet 1");
-          // Buat Sheet dengan Data
-          let ws = XLSX.utils.json_to_sheet(result);
-          wb.Sheets["Sheet 1"] = ws;
-          // Cek apakah folder downloadnya ada
-          const downloadFolder = path.resolve(__dirname, "../../asset/downloads");
-          if (!fs.existsSync(downloadFolder)) {
-            fs.mkdirSync(downloadFolder);
-          }
-          XLSX.writeFile(wb, `${downloadFolder}${path.sep}${fileName}.xls`);
-          res.download(`${downloadFolder}${path.sep}${fileName}.xls`);
-          break;
-        default:
-          res.status(200).json({status: 200, message: 'success show payment', data: result})
-          break;
-      }
-      
+      res.status(200).json({status: 200, message: 'success show payment', data: result})
     } catch (error) {
       next({status: 500, data: error})
     }
@@ -189,7 +292,7 @@ class Controller {
       switch (type_discount) {
         case '%':
           if(discount > 100) throw {status: 400, message: 'discount melebihi 100%'}
-          data.pay -= data.pay * (discount / 100)
+          total_payment -= total_payment * (discount / 100)
           break;
         case 'month':
           if(discount > result[0].duration) throw {status: 400, message: 'discount melebihi durasi kos'}
@@ -220,6 +323,7 @@ class Controller {
       await t.commit();
       res.status(200).json({status: 200, message: 'success create payment dp', data: {result, resultHistory, resultPayment}})
     } catch (error) {
+      await t.rollback();
       next({status: 500, data: error})
     }
   }
@@ -234,7 +338,7 @@ class Controller {
       if(/Invalid date/i.test(date)) throw {status: 400, message: 'date tidak valid'}
 
       let result = await sq.query(`
-        select sum(p.pay) as "total_payment", round(h.pay) as "money", round(h.user_id) as "user_id"
+        select count(p.id) as count_payment, sum(p.pay)::integer as "total_payment", round(h.pay)::integer as "money", round(h.user_id) as "user_id"
         from history h right join payment p on p.history_id = h.id and p.deleted_at is null
         where h.id = :history_id and h.deleted_at is null
         group by h.id 
@@ -243,7 +347,10 @@ class Controller {
         type: QueryTypes.SELECT
       })
       if(result.length == 0) throw {status: 402, message: 'data pembayaran tidak ditemukan'}
-      if(result[0].money - result[0].total_payment < payment) throw {status: 400, message: 'pembayaran melebihi total tagihan'}
+      if(result[0].money - result[0].total_payment == 0) throw {status: 400, message: `pembayaran telah lunas`}
+      // if(result[0].count_payment > 2) throw {status: 400, message: `telah membayar 3 kali`}
+      if(result[0].count_payment == 2 && result[0].money - result[0].total_payment > payment) throw {status: 400, message: `pembayaran terakhir diharuskan lunas, sejumlah ${result[0].money - result[0].total_payment}`}
+      if(result[0].money - result[0].total_payment < payment) throw {status: 400, message: `pembayaran melebihi total tagihan, sejumlah  ${result[0].money - result[0].total_payment}`}
 
       result = await dbpayment.create({history_id, user_id: result[0].user_id, date, pay: payment, type: 'angsuran'})
       res.status(200).json({status: 200, message: 'success create angsuran', data: result})

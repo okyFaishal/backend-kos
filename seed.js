@@ -85,10 +85,32 @@ async function start(){
           let start_kos = moment()
           let pack = resultPackage[acak(0, 1)]
           let price = Number.parseInt(elRoom.price)
-          let discount = Number.parseInt(pack.discount)
+          var type_discount = null
+          var discount = Number.parseInt(pack.discount) || null
+          discount?type_discount='month':false
           let duration = Number.parseInt(pack.duration)
-          let pay = price * (duration - discount) - (price * acak(0 ,0 , 1, 2, 3, 0, 0, 0))
-          let historyNew = {user_id: elUser.id, room_id: elRoom.id, package_id: pack.id, start_kos, pay}
+          if(acak(true, false)) var {type_discount, discount} = acak(
+            {type_discount: 'month', discount: 2},
+            {type_discount: 'month', discount: 4},
+            {type_discount: '%', discount: 30},
+            {type_discount: '%', discount: 50},
+            {type_discount: 'nominal', discount: 3500000},
+            {type_discount: 'nominal', discount: 2500000}
+          )
+          let pay = price * duration
+          switch (type_discount) {
+            case '%':
+              pay -= pay * (discount / 100)
+              break;
+            case 'month':
+              pay -= (price * discount)
+              break;
+            case 'nominal':
+              pay -= discount
+              break;
+          }
+          // let pay = price * (duration - discount) - (price * acak(0 ,0 , 1, 2, 3, 0, 0, 0))
+          let historyNew = {user_id: elUser.id, room_id: elRoom.id, package_id: pack.id, start_kos, pay, type_discount, discount}
           for (let i = dataHistory.length - 1; i >= 0; i--) {
             const elHistory = dataHistory[i];
             if(elHistory.room_id == elRoom.id || elHistory.user_id == elUser.id){
@@ -104,18 +126,22 @@ async function start(){
 
     //payment
     let dataPayment = []
+    let add = 0
     resultHistory.forEach(elHistory => {
-      dataPayment.push({user_id: elHistory.userId, history_id: elHistory.id, pay: elHistory.pay * 25 / 100, type: 'dp', date: moment()})
-      for (let i = 0; i < acak(1, 2, 3); i++) {
+      dataPayment.push({user_id: elHistory.userId, history_id: elHistory.id, pay: elHistory.pay * 25 / 100, type: 'dp', date: moment().add(add, 'hours')})
+      add++
+      for (let i = 0; i < acak(1, 2); i++) {
         let totalPay = 0
         dataPayment.forEach(elPayment => {
           if(elPayment.history_id == elHistory.id){
             totalPay += elPayment.pay
           }
         })
-        let pay = acak(1, 2, 3, 4, 5) * (elHistory.pay * 10 / 100)
+        if(totalPay == elHistory.pay) break
+        let pay = acak(true, false)?elHistory.pay-totalPay:acak(1, 2, 2, 3, 5) * (elHistory.pay * 10 / 100)
         if((totalPay + pay > elHistory.pay)) continue
-        dataPayment.push({user_id: elHistory.userId, history_id: elHistory.id, pay, type: 'angsuran', date: moment()})
+        dataPayment.push({user_id: elHistory.userId, history_id: elHistory.id, pay, type: 'angsuran', date: moment().add(add, 'hours')})
+        add++
       }
     });
     let resultPayment = await db.payment.bulkCreate(dataPayment)

@@ -10,7 +10,7 @@ class Controller {
   static async showUser(req, res, next) {
     try {
       if(!req.dataUsers.status_user) throw {status: 403, message: 'tidak memiliki akses'}
-      let result = await user.findAll({where: req.body.user_id?{id: req.body.user_id}:undefined})
+      let result = await user.findAll({where: req.query.user_id?{id: req.query.user_id}:undefined})
       res.status(200).json({status: 200, message: 'success show user', data: result})
     } catch (error) {
       next({status: 500, data: error})
@@ -18,7 +18,7 @@ class Controller {
   }
   static async showUserKos(req, res, next) {
     try {
-      const {build_id} = req.body
+      const {build_id} = req.query
       if(!req.dataUsers.status_user) throw {status: 403, message: 'tidak memiliki akses'}
       let result = await sq.query(`
         select 
@@ -44,7 +44,7 @@ class Controller {
   }
   static async register(req, res, next) {
     try {
-      const {username, email, contact, nik, birth_place, religion, gender, emergency_contact, emergency_name, status, name_company, name_university, major, degree, generation} = req.body
+      const {username, email, contact, nik, birth_place, religion, gender, emergency_contact, emergency_name, status, name_company, name_university, major, degree, generation} = req.query
       if(!(req.body.password && req.files.image_ktp && req.body.birth_date && username && email && contact && nik && birth_place && religion && gender && status)) throw {status: 400, message: 'Lengkapi Data'}
       const birth_date = new Date(req.body.birth_date)
       const password = hashPassword(req.body.password)
