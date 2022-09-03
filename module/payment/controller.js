@@ -197,7 +197,7 @@ class Controller {
   }
   static async showPayment(req, res, next) {
     try {
-      let {user_id, history_id, build_id, pay, date, type} = req.query
+      let {user_id, history_id, build_id, type} = req.query
       // req.dataUsers.status_user?true:user_id = req.dataUsers.id
       let result = await sq.query(`
         select 
@@ -224,7 +224,7 @@ class Controller {
         ${type?'and p.type = :type':''}
         group by p.id, u.id, h.id, p2.id, r.id, b.id
         order by p.date desc
-      `, {type: QueryTypes.SELECT, replacements: {user_id, history_id, pay, date, type}})
+      `, {type: QueryTypes.SELECT, replacements: {user_id, history_id, type}})
       if(result.length == 0) throw {status: 402, message: 'data tidak ditemukan'}
       res.status(200).json({status: 200, message: 'success show payment', data: result})
     } catch (error) {

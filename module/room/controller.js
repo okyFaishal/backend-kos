@@ -16,12 +16,18 @@ class Controller {
           left join package p on p.id = h.package_id and p.deleted_at is null
         where r.deleted_at is null ${build_id?'and b.id = :build_id':''}
       `, {type: QueryTypes.SELECT, replacements: {build_id}})
-      // let data = {}
-      // result.forEach((el, i, arr) => {
-      //   if(!data[el.build_name]) data[el.build_name] = []
-      //   data[el.build_name].push({...el, ...{build_name: undefined}})
-      // });
-      res.status(200).json({status: 200, message: 'success show room', data: result})
+      let data = []
+      result.forEach(elResult => {
+        let cek = true
+        data.forEach((elData, i, arr) => {
+          if(elData.name == elResult.build_name){
+            data[i].rooms.push({...elResult, ...{build_name: undefined}})
+            cek = false
+          }
+        })
+        if(cek) data.push({name: elResult.build_name, rooms: [{...elResult, ...{build_name: undefined}}]})
+      })
+      res.status(200).json({status: 200, message: 'success show room', data})
     } catch (error) {
       next({status: 500, data: error})
     }
