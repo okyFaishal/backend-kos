@@ -201,7 +201,7 @@ class Controller {
       // req.dataUsers.status_user?true:user_id = req.dataUsers.id
       let result = await sq.query(`
         select 
-          ${mode != 'export'?'u.id as user_id, p.id as payment_id, h.id as history_id, p2.id as package_id, r.id as room_id, b.id as build_id, u.image_profile, ':''}
+          u.id as user_id, p.id as payment_id, h.id as history_id, p2.id as package_id, r.id as room_id, b.id as build_id, u.image_profile, 
           b."name" as "build", b.address,
           p2."name" as "package", p2.duration ,
           r."name" as "room", r."size", 
