@@ -1,6 +1,6 @@
-asset/image/-/
-asset/image/ktp/
-asset/image/profile/
+# asset/image/-/
+# asset/image/ktp/
+# asset/image/profile/
 # Logs
 logs
 *.log
