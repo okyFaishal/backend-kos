@@ -3,6 +3,7 @@
 # asset/image/profile/
 !asset/image/profile/default.jpg
 !asset/image/ktp/default.jpg
+!default.jpg
 # Logs
 logs
 *.log
