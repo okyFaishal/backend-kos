@@ -1,7 +1,8 @@
 # asset/image/-/
 # asset/image/ktp/
 # asset/image/profile/
-!default.jpg
+!asset/image/profile/default.jpg
+!asset/image/ktp/default.jpg
 # Logs
 logs
 *.log
