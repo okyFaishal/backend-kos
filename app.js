@@ -5,6 +5,7 @@ const app = express()
 const routing = require('./routing/index')
 const errorHandling = require('./middleware/error-handling')
 
+app.use(express.static('asset'))
 app.use(cors())
 app.use(express.urlencoded({extended: false}))
 app.use(express.json())
