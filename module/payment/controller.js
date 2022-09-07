@@ -16,174 +16,288 @@ const Excel = require('exceljs');
 class Controller {
   static async exportXlsx(req, res, next) {
     try {
-      let {user_id, history_id, build_id, package_id, room_id, pay, date, type} = req.query
-      // req.dataUsers.status_user?true:user_id = req.dataUsers.id
-      let result = await sq.query(`
-        select 
-          u.id as user_id, p.id as payment_id, h.id as history_id, p2.id as package_id, r.id as room_id, b.id as build_id, u.image_profile,
-          b."name" as "build", b.address,
-          p2."name" as "package", p2.duration ,
-          r."name" as "room", r."size", 
-          u.username , u.email , u.status ,
-          h.type_discount, h.discount,
-          r.price as "price_room", h.pay as "total_price", p.pay as "payment", (sum(p3.pay))::integer as "total_payment", (h.pay - sum(p3.pay)::integer) as "deficiency", 
-          p."type" as "type_payment", p."date" ,
-          h.start_kos ,h.start_kos + interval '1 month' * p2.duration - interval '1 day' as "end_kos"
-        from payment p 
-          inner join "user" u on u.id = p.user_id
-          inner join history h on h.id = p.history_id  
-          inner join package p2 on p2.id = h.package_id 
-          inner join room r on r.id = h.room_id
-          inner join build b on b.id = r.build_id 
-          left join payment p3 on p3.history_id = h.id and p3."date" <= p."date" 
-        where p.deleted_at is null 
-        ${user_id?'and u.id = :user_id':''}  
-        ${room_id?'and r.id=:room_id':''} 
-        ${package_id?'and p.id=:package_id':''}
-        ${history_id?'and p.history_id = :history_id':''}
-        ${build_id?'and b.build_id = :build_id':''}
-        ${type?'and p.type = :type':''}
-        group by p.id, u.id, h.id, p2.id, r.id, b.id
-        order by p.date desc
-      `, {type: QueryTypes.SELECT, replacements: {user_id, history_id, pay, date, type}})
-      if(result.length == 0) throw {status: 402, message: 'data tidak ditemukan'}
-
-      //export excel
+      let {user_id, history_id, build_id, package_id, room_id, pay, date, type, mode} = req.query
       const workbook = new Excel.Workbook();
-      const worksheet = workbook.addWorksheet('Payment');
-      worksheet.columns = [
-        {header: 'Build', key: 'build', width: 15},
-        {header: 'Address', key: 'address', width: 20},
-        {header: 'Package', key: 'package', width: 12},
-        {header: 'Duration', key: 'duration', width: 13},
-        {header: 'Room', key: 'room', width: 10},
-        {header: 'Size', key: 'size', width: 10},
-        {header: 'Username', key: 'username', width: 15},
-        {header: 'Email', key: 'email', width: 25},
-        {header: 'Status', key: 'status', width: 10},
-        {header: 'Type Discount', key: 'type_discount', width: 15},
-        {header: 'Discount', key: 'discount', width: 15},
-        {header: 'Price Room', key: 'price_room', width: 17},
-        {header: 'Total Price', key: 'total_price', width: 17},
-        {header: 'Payment', key: 'payment', width: 17},
-        {header: 'Total Payment', key: 'total_payment', width: 17},
-        {header: 'Deficiency', key: 'deficiency', width: 17},
-        {header: 'Type Payment', key: 'type_payment', width: 16},
-        {header: 'Date', key: 'date', width: 19},
-        {header: 'Start Kos', key: 'start_kos', width: 19},
-        {header: 'End Kos', key: 'end_kos', width: 19 }
-      ]
-      for (const row of result) {
-        worksheet.addRow(row);
-      }
-      const endRow = worksheet.lastRow.number + 1;
-      worksheet.autoFilter = 'A1:T1';
-      let firstRow = worksheet.getRow(1)
-      firstRow.height = 20
-      firstRow.eachCell((cell, i)=>{
-        cell.fill = {
-          type: 'pattern',
-          pattern: 'solid',
-          fgColor: { argb: 'f5b914' }
-        }
-        cell.num
-      })
-      firstRow.commit()
-      worksheet.getColumn('price_room').numFmt = '_-Rp* #,##0_-;-Rp* #,##0_-;_-Rp* "-"_-;_-@_-'
-      worksheet.getColumn('total_price').numFmt = '_-Rp* #,##0_-;-Rp* #,##0_-;_-Rp* "-"_-;_-@_-'
-      worksheet.getColumn('payment').numFmt = '_-Rp* #,##0_-;-Rp* #,##0_-;_-Rp* "-"_-;_-@_-'
-      worksheet.getColumn('total_payment').numFmt = '_-Rp* #,##0_-;-Rp* #,##0_-;_-Rp* "-"_-;_-@_-'
-      worksheet.getColumn('deficiency').numFmt = '_-Rp* #,##0_-;-Rp* #,##0_-;_-Rp* "-"_-;_-@_-'
-      worksheet.getColumn('date').numFmt = `[$-en-ID]dd mmmm yyyy`
-      worksheet.getColumn('start_kos').numFmt = `[$-en-ID]dd mmmm yyyy`
-      worksheet.getColumn('end_kos').numFmt = `[$-en-ID]dd mmmm yyyy`
-      worksheet.addRow({
-        // price_room: { formula: `SUM(L2:L${endRow - 1})` },
-        // total_price: { formula: `SUM(M2:M${endRow - 1})` },
-        payment: { formula: `SUM(N2:N${endRow - 1})` },
-        // total_payment: { formula: `SUM(O2:O${endRow - 1})` },
-        // deficiency: { formula: `SUM(P2:P${endRow - 1})` },
-      });
-      
-      //========== history ==========
-      result = await sq.query(`
-        select 
-          h.id as history_id, u.id as user_id, r.id as room_id, b.id as build_id, p.id as package_id, u.image_profile,
-          u.username , u.email , u.status ,
-          b."name" as build, b.address ,
-          r."name" as room, r."size" , 
-          p.description , p.duration , p."name" as "package",
-          h.type_discount, h.discount, 
-          r.price as "price_room", h.pay as "total_price", sum(p2.pay)::integer as "total_payment", (h.pay - sum(p2.pay))::integer as "deficiency",
-          h.start_kos , h.start_kos + interval '1 month' * p.duration - interval '1 day' as "end_kos"
-        from history h
-          inner join "user" u on u.id = h.user_id 
-          inner join room r on r.deleted_at is null and r.id = h.room_id 
-          inner join build b on b.deleted_at is null and b.id = r.build_id 
-          inner join package p on p.deleted_at is null and p.id = h.package_id 
-          left join payment p2 on p2.deleted_at is null and p2.history_id  = h.id 
-        where h.deleted_at is null 
-        ${user_id?'and u.id=:user_id':''} 
-        ${room_id?'and r.id=:room_id':''} 
-        ${package_id?'and p.id=:package_id':''}
-        ${history_id?'and h.id = :history_id':''}
-        ${build_id?'and b.build_id = :build_id':''}
-        group by h.id, u.id, r.id, b.id, p.id
-        order by h.updated_at desc
-      `,{
-        replacements: {user_id, package_id, room_id},
-        type: QueryTypes.SELECT
-      })
-      // throw {status: 400, message: result}
-      if(result.length == 0) throw {status: 402, message: 'data tidak ditemukan'}
-      const history = workbook.addWorksheet('History');
-      history.columns = [
-        {header: 'Build', key: 'build', width: 15},
-        {header: 'Address', key: 'address', width: 20},
-        {header: 'Package', key: 'package', width: 12},
-        {header: 'Duration', key: 'duration', width: 13},
-        {header: 'Room', key: 'room', width: 10},
-        {header: 'Size', key: 'size', width: 10},
-        {header: 'Username', key: 'username', width: 15},
-        {header: 'Email', key: 'email', width: 25},
-        {header: 'Status', key: 'status', width: 10},
-        {header: 'Type Discount', key: 'type_discount', width: 15},
-        {header: 'Discount', key: 'discount', width: 15},
-        {header: 'Price Room', key: 'price_room', width: 17},
-        {header: 'Total Price', key: 'total_price', width: 17},
-        {header: 'Total Payment', key: 'total_payment', width: 17},
-        {header: 'Deficiency', key: 'deficiency', width: 17},
-        {header: 'Start Kos', key: 'start_kos', width: 19},
-        {header: 'End Kos', key: 'end_kos', width: 19 }
-      ]
-      for (const row of result) {
-        history.addRow(row);
-      }
-      const endRowHistory = history.lastRow.number + 1;
-      history.autoFilter = 'A1:Q1';
-      let firstRowHistory = history.getRow(1)
-      firstRowHistory.height = 20
-      firstRowHistory.eachCell((cell, i)=>{
-        cell.fill = {
-          type: 'pattern',
-          pattern: 'solid',
-          fgColor: { argb: 'f5b914' }
-        }
-        cell.num
-      })
-      firstRowHistory.commit()
-      history.getColumn('price_room').numFmt = '_-Rp* #,##0_-;-Rp* #,##0_-;_-Rp* "-"_-;_-@_-'
-      history.getColumn('total_price').numFmt = '_-Rp* #,##0_-;-Rp* #,##0_-;_-Rp* "-"_-;_-@_-'
-      history.getColumn('total_payment').numFmt = '_-Rp* #,##0_-;-Rp* #,##0_-;_-Rp* "-"_-;_-@_-'
-      history.getColumn('deficiency').numFmt = '_-Rp* #,##0_-;-Rp* #,##0_-;_-Rp* "-"_-;_-@_-'
-      history.getColumn('start_kos').numFmt = `[$-en-ID]dd mmmm yyyy`
-      history.getColumn('end_kos').numFmt = `[$-en-ID]dd mmmm yyyy`
-      history.addRow({
-        // price_room: { formula: `SUM(L2:L${endRowHistory - 1})` },
-        // total_price: { formula: `SUM(M2:M${endRowHistory - 1})` },
-        total_payment: { formula: `SUM(N2:N${endRowHistory - 1})` },
-        // deficiency: { formula: `SUM(P2:P${endRowHistory - 1})` },
-      });
+      let result = []
+      let worksheet
+      switch (mode) {
+        case 'all':
+        case 'history': //===== history =====
+          result = await sq.query(`
+            select 
+              h.id as history_id, u.id as user_id, r.id as room_id, b.id as build_id, p.id as package_id, u.image_profile,
+              u.username , u.email , u.status ,
+              b."name" as build, b.address ,
+              r."name" as room, r."size" , 
+              p.description , p.duration , p."name" as "package",
+              h.type_discount, h.discount, 
+              r.price as "price_room", h.pay as "total_price", sum(p2.pay)::integer as "total_payment", (h.pay - sum(p2.pay))::integer as "deficiency",
+              h.start_kos , h.start_kos + interval '1 month' * p.duration - interval '1 day' as "end_kos"
+            from history h
+              inner join "user" u on u.id = h.user_id 
+              inner join room r on r.deleted_at is null and r.id = h.room_id 
+              inner join build b on b.deleted_at is null and b.id = r.build_id 
+              inner join package p on p.deleted_at is null and p.id = h.package_id 
+              left join payment p2 on p2.deleted_at is null and p2.history_id  = h.id 
+            where h.deleted_at is null 
+            ${user_id?'and u.id=:user_id':''} 
+            ${room_id?'and r.id=:room_id':''} 
+            ${package_id?'and p.id=:package_id':''}
+            ${history_id?'and h.id = :history_id':''}
+            ${build_id?'and b.build_id = :build_id':''}
+            group by h.id, u.id, r.id, b.id, p.id
+            order by h.updated_at desc
+          `,{
+            replacements: {user_id, package_id, room_id},
+            type: QueryTypes.SELECT
+          })
+          // throw {status: 400, message: result}
+          if(result.length == 0) throw {status: 402, message: 'data tidak ditemukan'}
+          worksheet = workbook.addWorksheet('History');
+          worksheet.columns = [
+            {header: 'Build', key: 'build', width: 15},
+            {header: 'Address', key: 'address', width: 20},
+            {header: 'Package', key: 'package', width: 12},
+            {header: 'Duration', key: 'duration', width: 13},
+            {header: 'Room', key: 'room', width: 10},
+            {header: 'Size', key: 'size', width: 10},
+            {header: 'Username', key: 'username', width: 15},
+            {header: 'Email', key: 'email', width: 25},
+            {header: 'Status', key: 'status', width: 10},
+            {header: 'Type Discount', key: 'type_discount', width: 15},
+            {header: 'Discount', key: 'discount', width: 15},
+            {header: 'Price Room', key: 'price_room', width: 17},
+            {header: 'Total Price', key: 'total_price', width: 17},
+            {header: 'Total Payment', key: 'total_payment', width: 17},
+            {header: 'Deficiency', key: 'deficiency', width: 17},
+            {header: 'Start Kos', key: 'start_kos', width: 19},
+            {header: 'End Kos', key: 'end_kos', width: 19 }
+          ]
+          for (const row of result) {
+            worksheet.addRow(row);
+          }
+          const endRowHistory = worksheet.lastRow.number + 1;
+          worksheet.autoFilter = 'A1:Q1';
+          let firstRowHistory = worksheet.getRow(1)
+          firstRowHistory.height = 20
+          firstRowHistory.eachCell((cell, i)=>{
+            cell.fill = {
+              type: 'pattern',
+              pattern: 'solid',
+              fgColor: { argb: 'f5b914' }
+            }
+            cell.num
+          })
+          firstRowHistory.commit()
+          worksheet.getColumn('price_room').numFmt = '_-Rp* #,##0_-;-Rp* #,##0_-;_-Rp* "-"_-;_-@_-'
+          worksheet.getColumn('total_price').numFmt = '_-Rp* #,##0_-;-Rp* #,##0_-;_-Rp* "-"_-;_-@_-'
+          worksheet.getColumn('total_payment').numFmt = '_-Rp* #,##0_-;-Rp* #,##0_-;_-Rp* "-"_-;_-@_-'
+          worksheet.getColumn('deficiency').numFmt = '_-Rp* #,##0_-;-Rp* #,##0_-;_-Rp* "-"_-;_-@_-'
+          worksheet.getColumn('start_kos').numFmt = `[$-en-ID]dd mmmm yyyy`
+          worksheet.getColumn('end_kos').numFmt = `[$-en-ID]dd mmmm yyyy`
+          worksheet.addRow({
+            total_payment: { formula: `SUM(N2:N${endRowHistory - 1})` },
+          });
+        case 'all':
+          if(mode == 'history') break
+        case 'user': //===== user =====
+          //========== history ==========
+          result = await sq.query(`
+            select 
+              h.id as history_id, u.id as user_id, r.id as room_id, b.id as build_id, p.id as package_id, u.image_profile,
+              u.username , u.email , u.status ,
+              b."name" as build, b.address ,
+              r."name" as room, r."size" , 
+              p.description , p.duration , p."name" as "package",
+              h.type_discount, h.discount, 
+              r.price as "price_room", h.pay as "total_price", sum(p2.pay)::integer as "total_payment", (h.pay - sum(p2.pay))::integer as "deficiency",
+              h.start_kos , h.start_kos + interval '1 month' * p.duration - interval '1 day' as "end_kos"
+            from history h
+              inner join "user" u on u.id = h.user_id 
+              inner join room r on r.deleted_at is null and r.id = h.room_id 
+              inner join build b on b.deleted_at is null and b.id = r.build_id 
+              inner join package p on p.deleted_at is null and p.id = h.package_id 
+              left join payment p2 on p2.deleted_at is null and p2.history_id  = h.id 
+            where h.deleted_at is null 
+            ${user_id?'and u.id=:user_id':''} 
+            ${room_id?'and r.id=:room_id':''} 
+            ${package_id?'and p.id=:package_id':''}
+            ${history_id?'and h.id = :history_id':''}
+            ${build_id?'and b.build_id = :build_id':''}
+            group by h.id, u.id, r.id, b.id, p.id
+            order by h.updated_at desc
+          `,{
+            replacements: {user_id, package_id, room_id},
+            type: QueryTypes.SELECT
+          })
+          // throw {status: 400, message: result}
+          if(result.length == 0) throw {status: 402, message: 'data tidak ditemukan'}
+          let result1 = []
+          let idResult1 = []
+          result.forEach(el => {
+            let status = true
+            for (let i = 0; i < result1.length; i++) {
+              const el1 = result1[i];
+              if(el1.user_id == el.user_id){
+                status = false
+                if(el1.history_id != el.history_id){
+                  el1.total_price_user += el.total_price
+                  el1.total_payment_user += el.total_payment
+                }
+              }
+              if(el1.user_id == el.user_id && moment(el1.start_kos) < moment(el.start_kos) && el1.history_id != el.history_id){
+                el.total_price_user = el1.total_price_user
+                el.total_payment_user = el1.total_payment_user
+                result1.splice(i, 1, el)
+                idResult1.splice(i, 1, el.history_id)
+                status = false
+                break
+              }
+            }
+            if(status){
+              el.total_price_user = el.total_price
+              el.total_payment_user = el.total_payment
+              result1.push(el)
+              idResult1.push(el.history_id)
+            }
+          });
+          worksheet = workbook.addWorksheet('User');
+          worksheet.columns = [
+            {header: 'Username', key: 'username', width: 15},
+            {header: 'Email', key: 'email', width: 25},
+            {header: 'Status', key: 'status', width: 10},
+            {header: 'Total Price User', key: 'total_price_user', width: 18},
+            {header: 'Total Payment User', key: 'total_payment_user', width: 18},
+            {header: 'Build', key: 'build', width: 15},
+            {header: 'Address', key: 'address', width: 20},
+            {header: 'Package', key: 'package', width: 12},
+            {header: 'Duration', key: 'duration', width: 13},
+            {header: 'Room', key: 'room', width: 10},
+            {header: 'Size', key: 'size', width: 10},
+            {header: 'Type Discount', key: 'type_discount', width: 15},
+            {header: 'Discount', key: 'discount', width: 15},
+            {header: 'Price Room', key: 'price_room', width: 17},
+            {header: 'Total Price', key: 'total_price', width: 17},
+            {header: 'Total Payment', key: 'total_payment', width: 17},
+            {header: 'Deficiency', key: 'deficiency', width: 17},
+            {header: 'Start Kos', key: 'start_kos', width: 19},
+            {header: 'End Kos', key: 'end_kos', width: 19 }
+          ]
+          for (const row of result1) {
+            worksheet.addRow(row);
+          }
+          const endRowUser = worksheet.lastRow.number + 1;
+          worksheet.autoFilter = 'A1:S1';
+          let firstRowUser = worksheet.getRow(1)
+          firstRowUser.height = 20
+          firstRowUser.eachCell((cell, i)=>{
+            cell.fill = {
+              type: 'pattern',
+              pattern: 'solid',
+              fgColor: { argb: 'f5b914' }
+            }
+            cell.num
+          })
+          firstRowUser.commit()
+          worksheet.getColumn('total_price_user').numFmt = '_-Rp* #,##0_-;-Rp* #,##0_-;_-Rp* "-"_-;_-@_-'
+          worksheet.getColumn('total_payment_user').numFmt = '_-Rp* #,##0_-;-Rp* #,##0_-;_-Rp* "-"_-;_-@_-'
+          worksheet.getColumn('price_room').numFmt = '_-Rp* #,##0_-;-Rp* #,##0_-;_-Rp* "-"_-;_-@_-'
+          worksheet.getColumn('total_price').numFmt = '_-Rp* #,##0_-;-Rp* #,##0_-;_-Rp* "-"_-;_-@_-'
+          worksheet.getColumn('total_payment').numFmt = '_-Rp* #,##0_-;-Rp* #,##0_-;_-Rp* "-"_-;_-@_-'
+          worksheet.getColumn('deficiency').numFmt = '_-Rp* #,##0_-;-Rp* #,##0_-;_-Rp* "-"_-;_-@_-'
+          worksheet.getColumn('start_kos').numFmt = `[$-en-ID]dd mmmm yyyy`
+          worksheet.getColumn('end_kos').numFmt = `[$-en-ID]dd mmmm yyyy`
+          worksheet.addRow({
+            total_price_user: { formula: `SUM(D2:D${endRowUser - 1})` },
+            total_payment_user: { formula: `SUM(E2:E${endRowUser - 1})` },
+          });          
+          // break;
+        case 'all':
+          if(mode == 'user') break
+        default: //===== payment =====        
+          result = await sq.query(`
+            select 
+              u.id as user_id, p.id as payment_id, h.id as history_id, p2.id as package_id, r.id as room_id, b.id as build_id, u.image_profile,
+              b."name" as "build", b.address,
+              p2."name" as "package", p2.duration ,
+              r."name" as "room", r."size", 
+              u.username , u.email , u.status ,
+              h.type_discount, h.discount,
+              r.price as "price_room", h.pay as "total_price", p.pay as "payment", (sum(p3.pay))::integer as "total_payment", (h.pay - sum(p3.pay)::integer) as "deficiency", 
+              p."type" as "type_payment", p."date" ,
+              h.start_kos ,h.start_kos + interval '1 month' * p2.duration - interval '1 day' as "end_kos"
+            from payment p 
+              inner join "user" u on u.id = p.user_id
+              inner join history h on h.id = p.history_id  
+              inner join package p2 on p2.id = h.package_id 
+              inner join room r on r.id = h.room_id
+              inner join build b on b.id = r.build_id 
+              left join payment p3 on p3.history_id = h.id and p3."date" <= p."date" 
+            where p.deleted_at is null 
+            ${user_id?'and u.id = :user_id':''}  
+            ${room_id?'and r.id=:room_id':''} 
+            ${package_id?'and p.id=:package_id':''}
+            ${history_id?'and p.history_id = :history_id':''}
+            ${build_id?'and b.build_id = :build_id':''}
+            ${type?'and p.type = :type':''}
+            group by p.id, u.id, h.id, p2.id, r.id, b.id
+            order by p.date desc
+          `, {type: QueryTypes.SELECT, replacements: {user_id, history_id, pay, date, type}})
+          if(result.length == 0) throw {status: 402, message: 'data tidak ditemukan'}
+
+          //export excel
+          worksheet = workbook.addWorksheet('Payment')
+          worksheet.columns = [
+            {header: 'Build', key: 'build', width: 15},
+            {header: 'Address', key: 'address', width: 20},
+            {header: 'Package', key: 'package', width: 12},
+            {header: 'Duration', key: 'duration', width: 13},
+            {header: 'Room', key: 'room', width: 10},
+            {header: 'Size', key: 'size', width: 10},
+            {header: 'Username', key: 'username', width: 15},
+            {header: 'Email', key: 'email', width: 25},
+            {header: 'Status', key: 'status', width: 10},
+            {header: 'Type Discount', key: 'type_discount', width: 15},
+            {header: 'Discount', key: 'discount', width: 15},
+            {header: 'Price Room', key: 'price_room', width: 17},
+            {header: 'Total Price', key: 'total_price', width: 17},
+            {header: 'Payment', key: 'payment', width: 17},
+            {header: 'Total Payment', key: 'total_payment', width: 17},
+            {header: 'Deficiency', key: 'deficiency', width: 17},
+            {header: 'Type Payment', key: 'type_payment', width: 16},
+            {header: 'Date', key: 'date', width: 19},
+            {header: 'Start Kos', key: 'start_kos', width: 19},
+            {header: 'End Kos', key: 'end_kos', width: 19 }
+          ]
+          for (const row of result) {
+            worksheet.addRow(row);
+          }
+          const endRow = worksheet.lastRow.number + 1;
+          worksheet.autoFilter = 'A1:T1';
+          let firstRow = worksheet.getRow(1)
+          firstRow.height = 20
+          firstRow.eachCell((cell, i)=>{
+            cell.fill = {
+              type: 'pattern',
+              pattern: 'solid',
+              fgColor: { argb: 'f5b914' }
+            }
+            cell.num
+          })
+          firstRow.commit()
+          worksheet.getColumn('price_room').numFmt = '_-Rp* #,##0_-;-Rp* #,##0_-;_-Rp* "-"_-;_-@_-'
+          worksheet.getColumn('total_price').numFmt = '_-Rp* #,##0_-;-Rp* #,##0_-;_-Rp* "-"_-;_-@_-'
+          worksheet.getColumn('payment').numFmt = '_-Rp* #,##0_-;-Rp* #,##0_-;_-Rp* "-"_-;_-@_-'
+          worksheet.getColumn('total_payment').numFmt = '_-Rp* #,##0_-;-Rp* #,##0_-;_-Rp* "-"_-;_-@_-'
+          worksheet.getColumn('deficiency').numFmt = '_-Rp* #,##0_-;-Rp* #,##0_-;_-Rp* "-"_-;_-@_-'
+          worksheet.getColumn('date').numFmt = `[$-en-ID]dd mmmm yyyy`
+          worksheet.getColumn('start_kos').numFmt = `[$-en-ID]dd mmmm yyyy`
+          worksheet.getColumn('end_kos').numFmt = `[$-en-ID]dd mmmm yyyy`
+          worksheet.addRow({
+            payment: { formula: `SUM(N2:N${endRow - 1})` },
+          });
+          break;
+      }      
 
       const downloadFolder = path.resolve(__dirname, "../../asset/downloads");
       if (!fs.existsSync(downloadFolder)) {
