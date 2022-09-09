@@ -3,14 +3,20 @@ const sq = require('../../config/connection');
 const user = require('./model');
 const {hashPassword, compare} = require('../../helper/bcrypt');
 const {generateToken, verifyToken} = require('../../helper/jwt');
-const { QueryTypes } = require('sequelize');
+const { QueryTypes, Op} = require('sequelize');
 
 
 class Controller {
   static async showUser(req, res, next) {
     try {
       if(!req.dataUsers.status_user) throw {status: 403, message: 'tidak memiliki akses'}
-      let result = await user.findAll({where: req.query.user_id?{id: req.query.user_id}:undefined})
+      let {user_id, page, limit, username, order} = req.query
+      if(page && !limit) throw {status: 403, message: 'masukkan limit'}
+      let offset = page?((page - 1) * limit):undefined
+      let where = {}
+      if(user_id) where.id = user_id
+      if(username) where.username = {[Op.like]:`%${username}%`}
+      let result = await user.findAll({where, offset, limit, order: [[order||'username', 'ASC']]})
       res.status(200).json({status: 200, message: 'success show user', data: result})
     } catch (error) {
       next({status: 500, data: error})

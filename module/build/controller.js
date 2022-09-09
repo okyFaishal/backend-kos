@@ -5,13 +5,19 @@ const build = require('./model');
 const kirimEmail = require('../../helper/kirimEmail')
 const {verifyToken} = require('../../helper/jwt')
 const {hashPassword, compare} = require('../../helper/bcrypt');
-const { QueryTypes } = require('sequelize');
+const { QueryTypes, Op } = require('sequelize');
 
 
 class Controller {
   static async showBuild(req, res, next) {
     try {
-      let result = await build.findAll({order: [['updated_at', 'DESC']]})
+      let {build_id, page, limit, name, order} = req.query
+      if(page && !limit) throw {status: 403, message: 'masukkan limit'}
+      let offset = page?((page - 1) * limit):undefined
+      let where = {}
+      if(build_id) where.id = build_id
+      if(name) where.name = {[Op.like]:`%${name}%`}
+      let result = await build.findAll({where, offset, limit, order: [[order||'updated_at', 'ASC']]})
       res.status(200).json({status: 200, message: 'success show build', data: result})
     } catch (error) {
       next({status: 500, data: error})

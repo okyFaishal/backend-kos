@@ -1,12 +1,18 @@
 const sq = require('../../config/connection');
 const dbpackage = require('./model');
-const { QueryTypes } = require('sequelize');
+const { QueryTypes, Op } = require('sequelize');
 
 
 class Controller {
   static async showPackage(req, res, next){
     try {
-      let result = await dbpackage.findAll({order: [['updated_at', 'DESC']]})
+      let {package_id, page, limit, name, order} = req.query
+      if(page && !limit) throw {status: 403, message: 'masukkan limit'}
+      let offset = page?((page - 1) * limit):undefined
+      let where = {}
+      if(package_id) where.id = package_id
+      if(name) where.name = {[Op.like]:`%${name}%`}
+      let result = await dbpackage.findAll({where, offset, limit, order: [[order||'updated_at', 'ASC']]})
       res.status(200).json({status: 200, message: 'success show package', data: result})
     } catch (error) {
       next({status: 500, data: error})

@@ -27,6 +27,6 @@ module.exports = (result, req, res, next) => {
   }else{ //error sistem/server
     result = {status: 500, message: 'server error', data: result}
   }
-  // console.log(result)
+  console.log(result)
   res.status(result.status).json(result)
 }
