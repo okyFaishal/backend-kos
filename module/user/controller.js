@@ -29,7 +29,7 @@ class Controller {
       let result = await sq.query(`
         select 
           u.id, u.image_profile, u.username, u.email, u.contact, u.nik, u.status,
-          h.id as "history_id", h.pay, h.start_kos ,h.start_kos + interval '1 month' * p.duration as "end_kos",
+          h.id as "history_id", h.pay, h.start_kos ,h.start_kos + interval '1 month' - interval '1 day' * p.duration as "end_kos",
           r.id as "room_id", r.name, r.size, r.price, 
           b.id as "build_id", b.name, b.address, 
           p.id as "package_id", p.name, p.description, p.discount, p.duration, 
@@ -44,6 +44,43 @@ class Controller {
         group by u.id, h.id, r.id, b.id, p.id
       `, {replacements: {build_id}, type: QueryTypes.SELECT})
       res.status(200).json({status: 200, message: 'success show user', data: result})
+    } catch (error) {
+      next({status: 500, data: error})
+    }
+  }
+  static async showDetailUser(req, res, next) {
+    try {
+      const user_id = req.params.id
+      if(!req.dataUsers.status_user) throw {status: 403, message: 'tidak memiliki akses'}
+      let result = await sq.query(`
+        select 
+          h.id as history_id, u.id as user_id, r.id as room_id, b.id as build_id, p.id as package_id, 
+          u.image_profile, u.image_profile , u.status_user , u.username , u.email , u.verify_email , u.contact , u.nik , u.birth_place , u.birth_date , u.religion , u.gender , u.emergency_name , u.emergency_contact , u.status , u.name_company , u.name_university , u.major , u."degree" , u.generation , 
+          b."name" as build_name, b.address ,
+          r."name" as room_name, r."size" , 
+          p.description , p.duration ,
+          h.type_discount, h.discount as discount, 
+          r.price as "price_room", h.pay as "total_price", sum(p2.pay)::integer as "total_payment", (h.pay - sum(p2.pay))::integer as "deficiency",
+          h.start_kos , h.start_kos + interval '1 month' * p.duration - interval '1 day' as "end_kos"
+        from history h
+          inner join "user" u on u.id = h.user_id and u.id = :user_id
+          inner join room r on r.deleted_at is null and r.id = h.room_id 
+          inner join build b on b.deleted_at is null and b.id = r.build_id
+          inner join package p on p.deleted_at is null and p.id = h.package_id 
+          left join payment p2 on p2.deleted_at is null and p2.history_id  = h.id 
+        where h.deleted_at is null
+        group by h.id, u.id, r.id, b.id, p.id
+        order by start_kos  desc
+      `, {replacements: {user_id}, type: QueryTypes.SELECT})
+      let dataUser = {}
+      let dataHistory = []
+      let data = []
+      if(!dataUser.id) dataUser = {id: result[0].user_id, image_profile: result[0].image_profile, image_profile: result[0].image_profile, status_user: result[0].status_user, username: result[0].username, email: result[0].email, verify_email: result[0].verify_email, contact: result[0].contact, nik: result[0].nik, birth_place: result[0].birth_place, birth_date: result[0].birth_date, religion: result[0].religion, gender: result[0].gender, emergency_name: result[0].emergency_name, emergency_contact: result[0].emergency_contact, status: result[0].status, name_company: result[0].name_company, name_university: result[0].name_university, major: result[0].major, degree: result[0].degree, generation: result[0].generation}
+        
+      result.forEach(elResult => {
+        dataHistory.push({...elResult, ...{image_profile: undefined, image_profile: undefined, status_user: undefined, username: undefined, email: undefined, verify_email: undefined, contact: undefined, nik: undefined, birth_place: undefined, birth_date: undefined, religion: undefined, gender: undefined, emergency_name: undefined, emergency_contact: undefined, status: undefined, name_company: undefined, name_university: undefined, major: undefined, degree: undefined, generation: undefined}})
+      })
+      res.status(200).json({status: 200, message: 'success show user', data: {dataUser, dataHistory}})
     } catch (error) {
       next({status: 500, data: error})
     }

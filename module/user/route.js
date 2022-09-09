@@ -13,6 +13,7 @@ router.put("/update-user/:id", authentification, upload, Controller.updateUser);
 router.put("/change-password", authentification, Controller.changePassword);
 router.get("/show-user", authentification, Controller.showUser);
 router.get("/show-user-kos", authentification, Controller.showUserKos);
+router.get("/show-detail-user/:id", authentification, Controller.showDetailUser);
 // router.delete("/delete-acount", authentification, Controller.deleteAcount);
 
 

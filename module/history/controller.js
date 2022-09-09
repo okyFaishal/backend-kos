@@ -11,12 +11,11 @@ const moment = require('moment')
 class Controller {
   static async showHistory(req, res, next) {
     try {
-      let {user_id, room_id, package_id, mode} = req.query
-      // req.dataUsers.status_user?true:user_id = req.dataUsers.id
-
+      let {history_id, user_id, room_id, package_id, page, limit} = req.query
+      req.dataUsers.status_user?true:user_id = req.dataUsers.id
       let result = await sq.query(`
         select 
-          ${mode=='export'?'':'h.id as history_id, u.id as user_id, r.id as room_id, b.id as build_id, p.id as package_id, u.image_profile, '}
+          h.id as history_id, u.id as user_id, r.id as room_id, b.id as build_id, p.id as package_id, u.image_profile, 
           u.email ,
           b."name" as build_name, b.address ,
           r."name" as room_name, r."size" , 
@@ -30,25 +29,18 @@ class Controller {
           inner join build b on b.deleted_at is null and b.id = r.build_id
           inner join package p on p.deleted_at is null and p.id = h.package_id 
           left join payment p2 on p2.deleted_at is null and p2.history_id  = h.id 
-        where h.deleted_at is null ${user_id?'and u.id=:user_id':''} ${room_id?'and r.id=:room_id':''} ${package_id?'and p.id=:package_id':''}
+        where h.deleted_at is null ${user_id?'and u.id=:user_id':''} ${room_id?'and r.id=:room_id':''} ${package_id?'and p.id=:package_id':''} ${history_id?'and h.id=:history_id':''}
         group by h.id, u.id, r.id, b.id, p.id
         order by h.updated_at desc
+        offset ${page||0} rows
+        ${limit?`fetch first ${limit} rows only`:''}
       `,{
-        replacements: {user_id, package_id, room_id},
+        replacements: {history_id, user_id, package_id, room_id, page, limit},
         type: QueryTypes.SELECT
       })
       // throw {status: 400, message: result}
       if(result.length == 0) throw {status: 402, message: 'data tidak ditemukan'}
-      switch (mode) {
-        case 'export':
-          let write = await writeExcel('history', result)
-          if(!write.status) throw {status: 500, data: write.error, message: 'gagal membuat file excel'}
-          res.download(write.data);
-          break;
-        default:
-          res.status(200).json({status: 200, message: 'success show history', data: result})
-          break;
-      }
+      res.status(200).json({status: 200, message: 'success show history', data: result})
     } catch (error) {
       next({status: 500, data: error})
     }

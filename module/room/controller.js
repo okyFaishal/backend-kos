@@ -15,7 +15,7 @@ class Controller {
           left join history h on h.room_id = r.id and h.deleted_at is null and start_kos < now() and h.start_kos + interval '1 month' * (select p2.duration from package p2 where p2.id = h.package_id and p2.deleted_at is null limit 1) > now()
           left join package p on p.id = h.package_id and p.deleted_at is null
           left join "user" u on u.id = h.user_id 
-        where r.deleted_at is null ${build_id?'and b.id = :build_id':''} ${room_id?'and r.id = :room_id':''} ${name?'and r.name = :name':''}
+        where r.deleted_at is null ${build_id?'and b.id = :build_id':''} ${room_id?'and r.id = :room_id':''} ${name?'and r.name LIKE :name':''}
         order by r."name" ASC
         offset ${page||0} rows
         ${limit?`fetch first ${limit} rows only`:''}

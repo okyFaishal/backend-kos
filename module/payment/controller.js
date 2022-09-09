@@ -311,7 +311,7 @@ class Controller {
   }
   static async showPayment(req, res, next) {
     try {
-      let {user_id, history_id, build_id, type} = req.query
+      let {payment_id, user_id, history_id, build_id, type, page, limit} = req.query
       // req.dataUsers.status_user?true:user_id = req.dataUsers.id
       let result = await sq.query(`
         select 
@@ -332,13 +332,16 @@ class Controller {
           inner join build b on b.id = r.build_id 
           left join payment p3 on p3.history_id = h.id and p3."date" <= p."date" 
         where p.deleted_at is null 
+        ${payment_id?'and p.id = :payment_id':''}  
         ${user_id?'and u.id = :user_id':''}  
         ${history_id?'and p.history_id = :history_id':''}
         ${build_id?'and b.build_id = :build_id':''}
         ${type?'and p.type = :type':''}
         group by p.id, u.id, h.id, p2.id, r.id, b.id
         order by p.date desc
-      `, {type: QueryTypes.SELECT, replacements: {user_id, history_id, type}})
+        offset ${page||0} rows
+        ${limit?`fetch first ${limit} rows only`:''}
+      `, {type: QueryTypes.SELECT, replacements: {payment_id, user_id, history_id, type, page, limit}})
       if(result.length == 0) throw {status: 402, message: 'data tidak ditemukan'}
       res.status(200).json({status: 200, message: 'success show payment', data: result})
     } catch (error) {
@@ -352,14 +355,14 @@ class Controller {
       start_kos = moment(start_kos).utc()
       date = date ? moment(date).utc() : moment().utc()
       if(!req.dataUsers.status_user) throw {status: 403, message: 'tidak memiliki akses'}
-      if(!(user_id && package_id && room_id && payment && discount && type_discount && start_kos && date)) throw {status: 400, message: 'lengkapi data'}
+      if(!(user_id && package_id && room_id && payment && start_kos && date)) throw {status: 400, message: 'lengkapi data'}
       if(user_id && (/\D/.test(user_id))) throw {status: 400, message: 'user id tidak valid'}
       if(package_id && (/\D/.test(package_id))) throw {status: 400, message: 'package id tidak valid'}
       if(room_id && (/\D/.test(room_id))) throw {status: 400, message: 'room id tidak valid'}
       if(payment && (/\D/.test(payment))) throw {status: 400, message: 'payment tidak valid'}
       if(discount && (/\D/.test(discount))) throw {status: 400, message: 'discount tidak valid'}
+      if(discount) discount = Number.parseInt(discount)
       payment = Number.parseInt(payment)
-      discount = Number.parseInt(discount)
       if(/Invalid date/i.test(start_kos)) throw {status: 400, message: 'start kos tidak valid'}
       if(/Invalid date/i.test(date)) throw {status: 400, message: 'date tidak valid'}
 
