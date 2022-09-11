@@ -18,7 +18,8 @@ class Controller {
       if(build_id) where.id = build_id
       if(name) where.name = {[Op.like]:`%${name}%`}
       let result = await build.findAll({where, offset, limit, order: [[order||'updated_at', 'ASC']]})
-      res.status(200).json({status: 200, message: 'success show build', data: result})
+      let count = await build.count()
+      res.status(200).json({status: 200, message: 'success show build', data: {data_kamar: result, limit, page, count}})
     } catch (error) {
       next({status: 500, data: error})
     }

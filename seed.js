@@ -128,7 +128,7 @@ async function start(){
     let dataPayment = []
     let add = 0
     resultHistory.forEach(elHistory => {
-      dataPayment.push({user_id: elHistory.userId, history_id: elHistory.id, pay: elHistory.pay * 25 / 100, type: 'dp', date: moment().add(add, 'hours')})
+      dataPayment.push({user_id: elHistory.userId, history_id: elHistory.id, pay: elHistory.pay * 25 / 100, type: 'dp', date: elHistory.start_kos})
       add++
       for (let i = 0; i < acak(1, 2); i++) {
         let totalPay = 0
@@ -140,7 +140,7 @@ async function start(){
         if(totalPay == elHistory.pay) break
         let pay = acak(true, false)?elHistory.pay-totalPay:acak(1, 2, 2, 3, 5) * (elHistory.pay * 10 / 100)
         if((totalPay + pay > elHistory.pay)) continue
-        dataPayment.push({user_id: elHistory.userId, history_id: elHistory.id, pay, type: 'angsuran', date: moment().add(add, 'hours')})
+        dataPayment.push({user_id: elHistory.userId, history_id: elHistory.id, pay, type: 'angsuran', date: moment(elHistory.start_kos).add(acak(1, 2, 3), 'months')})
         add++
       }
     });

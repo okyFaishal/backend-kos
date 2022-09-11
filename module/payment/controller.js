@@ -315,7 +315,7 @@ class Controller {
       // req.dataUsers.status_user?true:user_id = req.dataUsers.id
       let result = await sq.query(`
         select 
-          u.id as user_id, p.id as payment_id, h.id as history_id, p2.id as package_id, r.id as room_id, b.id as build_id, u.image_profile, 
+          count(*) over() as "count", u.id as user_id, p.id as payment_id, h.id as history_id, p2.id as package_id, r.id as room_id, b.id as build_id, u.image_profile, 
           b."name" as "build", b.address,
           p2."name" as "package", p2.duration ,
           r."name" as "room", r."size", 
@@ -343,7 +343,56 @@ class Controller {
         ${limit?`fetch first ${limit} rows only`:''}
       `, {type: QueryTypes.SELECT, replacements: {payment_id, user_id, history_id, type, page, limit}})
       if(result.length == 0) throw {status: 402, message: 'data tidak ditemukan'}
-      res.status(200).json({status: 200, message: 'success show payment', data: result})
+      let count = 0
+      result.forEach((el, idx, arr) => {
+        if(count == 0) count = el.count
+        arr[idx].count = undefined
+      });
+      res.status(200).json({status: 200, message: 'success show payment', data: {data_payment: result, limit, page, count}})
+    } catch (error) {
+      next({status: 500, data: error})
+    }
+  }
+  static async showCountPayment(req, res, next) {
+    try {
+      let {mode} = req.query
+      req.dataUsers.status_user?true:user_id = req.dataUsers.id
+      let result = await dbpayment.findAll({order: [['date', 'ASC']]})
+      if(result.length == 0) throw {status: 402, message: 'data tidak ditemukan'}
+      let data = []
+      result.forEach((el, idx, arr) => {
+        let year = moment(el.date).year()
+        let month = moment(el.date).month()+1
+        let payment = el.pay
+        let x = data.length
+        let y = 0
+        for (let i = 0; i < data.length; i++) {
+          const el1 = data[i];
+          if(el1.year == year){
+            x = i
+            if(mode == 'month'){
+              if(el1) y = el1.data.length
+              for (let o = 0; o < el1.data.length; o++) {
+                const el2 = el1.data[o];
+                if(el2.month == month){
+                  payment += el2.payment
+                  y = o
+                  break
+                }
+              }
+            }else{
+              payment += el1.payment
+              break
+            }
+            if(y != 0) break
+          }
+        }
+        if(mode == 'month') {
+          if(!data[x]) data[x] = {year, data: []}
+          data[x].data[y] = {month, payment}
+        }else data[x] = {year, payment}
+      });
+      res.status(200).json({status: 200, message: 'success show payment', data})
     } catch (error) {
       next({status: 500, data: error})
     }

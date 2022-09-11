@@ -17,7 +17,8 @@ class Controller {
       if(user_id) where.id = user_id
       if(username) where.username = {[Op.like]:`%${username}%`}
       let result = await user.findAll({where, offset, limit, order: [[order||'username', 'ASC']]})
-      res.status(200).json({status: 200, message: 'success show user', data: result})
+      let count = await user.count()
+      res.status(200).json({status: 200, message: 'success show user', data: {data_user: result, limit, page, count}})
     } catch (error) {
       next({status: 500, data: error})
     }

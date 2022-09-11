@@ -15,7 +15,7 @@ class Controller {
       req.dataUsers.status_user?true:user_id = req.dataUsers.id
       let result = await sq.query(`
         select 
-          h.id as history_id, u.id as user_id, r.id as room_id, b.id as build_id, p.id as package_id, u.image_profile, 
+          count(*) over() as "count", h.id as history_id, u.id as user_id, r.id as room_id, b.id as build_id, p.id as package_id, u.image_profile, 
           u.email ,
           b."name" as build_name, b.address ,
           r."name" as room_name, r."size" , 
@@ -40,7 +40,12 @@ class Controller {
       })
       // throw {status: 400, message: result}
       if(result.length == 0) throw {status: 402, message: 'data tidak ditemukan'}
-      res.status(200).json({status: 200, message: 'success show history', data: result})
+      let count = 0
+      result.forEach((el, idx, arr) => {
+        if(count == 0) count = el.count
+        arr[idx].count = undefined
+      });
+      res.status(200).json({status: 200, message: 'success show history', data: {data_history: result, limit, page, count}})
     } catch (error) {
       next({status: 500, data: error})
     }
