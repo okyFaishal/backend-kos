@@ -14,7 +14,7 @@ class Controller {
       if(name) where.name = {[Op.like]:`%${name}%`}
       let result = await dbpackage.findAll({where, offset, limit, order: [[order||'updated_at', 'ASC']]})
       let count = await dbpackage.count()
-      res.status(200).json({status: 200, message: 'success show package', data: {data_package: result, limit, page, count}})
+      res.status(200).json({status: 200, message: 'success show package', data: {data_package: result, limit, pageNow: page, pageLast: limit ? Math.ceil(count/limit) : undefined, count}})
     } catch (error) {
       next({status: 500, data: error})
     }

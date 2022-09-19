@@ -348,7 +348,7 @@ class Controller {
         if(count == 0) count = el.count
         arr[idx].count = undefined
       });
-      res.status(200).json({status: 200, message: 'success show payment', data: {data_payment: result, limit, page, count}})
+      res.status(200).json({status: 200, message: 'success show payment', data: {data_payment: result, limit, pageNow: page, pageLast: limit ? Math.ceil(count/limit) : undefined, count}})
     } catch (error) {
       next({status: 500, data: error})
     }

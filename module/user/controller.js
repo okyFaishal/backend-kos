@@ -18,18 +18,30 @@ class Controller {
       if(username) where.username = {[Op.like]:`%${username}%`}
       let result = await user.findAll({where, offset, limit, order: [[order||'username', 'ASC']]})
       let count = await user.count()
-      res.status(200).json({status: 200, message: 'success show user', data: {data_user: result, limit, page, count}})
+      res.status(200).json({status: 200, message: 'success show user', data: {data_user: result, limit, pageNow: page, pageLast: limit ? Math.ceil(count/limit) : undefined, count}})
     } catch (error) {
       next({status: 500, data: error})
     }
   }
   static async showUserKos(req, res, next) {
     try {
-      const {build_id} = req.query
-      if(!req.dataUsers.status_user) throw {status: 403, message: 'tidak memiliki akses'}
+      let {build_id} = req.query
+      if(build_id && !req.dataUsers.status_user) throw {status: 403, message: 'tidak memiliki akses'}
+      if(!req.dataUsers.status_user){
+        let result = await sq.query(`
+          select b.id 
+          from history h 
+            inner join package p on p.deleted_at is null and p.id = h.package_id and h.start_kos + interval '1 month' * p.duration > now()
+            inner join room r on r.deleted_at is null and r.id = h.room_id 
+            inner join build b on b.deleted_at is null and b.id = r.build_id
+          where h.deleted_at is null and h.user_id = :id
+        `, {replacements: {id: req.dataUsers.id}, type: QueryTypes.SELECT})
+        if(result.length == 0) throw {status: 400, message: 'tidak menyewa kamar'}
+        build_id = result[0].id
+      }
       let result = await sq.query(`
         select 
-          u.id, u.image_profile, u.username, u.email, u.contact, u.nik, u.status,
+          u.id, u.image_profile, u.username, u.email, u.contact, u.nik, u.status, ${!req.dataUsers.status_user?' u.public , u.public_religion , u.public_gender , u.religion , u.gender , u.birth_place , u.birth_date, ':''}
           h.id as "history_id", h.pay, h.start_kos ,h.start_kos + interval '1 month' - interval '1 day' * p.duration as "end_kos",
           r.id as "room_id", r.name, r.size, r.price, 
           b.id as "build_id", b.name, b.address, 
@@ -44,6 +56,22 @@ class Controller {
         where start_kos < now() and h.start_kos + interval '1 month' * p.duration > now() ${build_id?'and build_id = :build_id':''}
         group by u.id, h.id, r.id, b.id, p.id
       `, {replacements: {build_id}, type: QueryTypes.SELECT})
+      if(!req.dataUsers.status_user){
+        let data = []
+        result.forEach(el=>{
+          if(el.public){
+            data.push({
+              image_profile: el.image_profile, 
+              username: el.username,
+              religion: el.public_religion ? el.religion : '-',
+              gender: el.public_gender ? el.gender : '-',
+            })
+          }else{
+            data.push({image_profile: 'default.jpg', username: el.username.slice(0, 1) + '***', religion: '-', gender: '-',})
+          }
+        })
+        result = data
+      }
       res.status(200).json({status: 200, message: 'success show user', data: result})
     } catch (error) {
       next({status: 500, data: error})
@@ -88,7 +116,7 @@ class Controller {
   }
   static async register(req, res, next) {
     try {
-      const {username, email, contact, nik, birth_place, religion, gender, emergency_contact, emergency_name, status, name_company, name_university, major, degree, generation} = req.query
+      const {username, email, contact, nik, birth_place, religion, gender, emergency_contact, emergency_name, status, name_company, name_university, major, degree, generation} = req.body
       if(!(req.body.password && req.files.image_ktp && req.body.birth_date && username && email && contact && nik && birth_place && religion && gender && status)) throw {status: 400, message: 'Lengkapi Data'}
       const birth_date = new Date(req.body.birth_date)
       const password = hashPassword(req.body.password)
@@ -96,6 +124,7 @@ class Controller {
       const image_ktp = req.files.image_ktp[0].filename
 
       if(/\D/.test(contact)) throw {status: 400, message: 'contact tidak valid'}
+      else if(nik.length != 16) throw {status: 400, message: 'nik tidak valid, harus 16 karakter'}
       else if(/\D/.test(emergency_contact)) throw {status: 400, message: 'emergency contact tidak valid'}
       else if(/\D/.test(nik)) throw {status: 400, message: 'nik tidak valid'}
       else if(/\D/.test(generation)) throw {status: 400, message: 'generation tidak valid'}
@@ -103,11 +132,12 @@ class Controller {
       else if(!/mahasiswa|kerja/.test(status)) throw {status: 400, message: 'status tidak valid'}
       else if(birth_date == 'Invalid Date') throw {status: 400, message: 'birth date tidak valid'}
       
-      const result = await user.create({image_profile, image_ktp, username, email, password, contact, nik, birth_place, birth_date, religion, gender, emergency_contact, emergency_name, status, name_company, name_university, major, degree, generation})
+      let result = await user.create({image_profile, image_ktp, username, email, password, contact, nik, birth_place, birth_date, religion, gender, emergency_contact, emergency_name, status, name_company, name_university, major, degree, generation})
       result.dataValues.password = undefined
-      const token = generateToken(result.dataValues)
 
-      res.status(200).json({status: 200, message: 'success create acount', data: {...result.dataValues, token}})
+      result = {...result.dataValues, status_user: result.status_user?'admin':'user'}  //tentukan admin / user
+      const token = generateToken(result)
+      res.status(200).json({status: 200, message: 'success create acount', data: {...result, token}})
     } catch (error) {
       next({status: 500, data: error})
     }
@@ -149,8 +179,27 @@ class Controller {
       else if(!compare(password, dataCek.password)) throw {status: 400, message: 'Password Tidak Cocok'}
       dataCek.dataValues.password = undefined
       // attributes: {exclude: ['password']}, 
-
+      
       dataCek = {...dataCek.dataValues, status_user: dataCek.status_user?'admin':'user'}  //tentukan admin / user
+      if(dataCek.status_user == 'user'){
+        let result = await sq.query(`
+          select  
+            h.room_id , h.package_id , h.pay , h.type_discount , h.discount , h.start_kos , 
+            p."name" as package_name , p.description , p.duration , p.discount , 
+            r."name" as room_name , r."size" , r.price , r.build_id, 
+            b."name" as build_name , b.address 
+          from history h 
+            inner join package p on p.deleted_at is null and p.id = h.package_id and h.start_kos + interval '1 month' * p.duration > now()
+            inner join room r on r.deleted_at is null and r.id = h.room_id 
+            inner join build b on b.deleted_at is null and b.id = r.build_id
+          where h.deleted_at is null and h.user_id = :id
+        `, {replacements: {id: dataCek.id}, type: QueryTypes.SELECT})
+        console.log(result)
+        console.log(result.length)
+        if(result.length) dataCek = {...dataCek, ...result[0]}
+      }
+
+      // dataCek = {...dataCek.dataValues, status_user: dataCek.status_user?'admin':'user'}  //tentukan admin / user
       const token = generateToken(dataCek) //buat token
       res.status(200).json({status: 200, message: 'success login', data: {...dataCek, token}})
     } catch (error) {
