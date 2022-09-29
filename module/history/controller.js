@@ -9,6 +9,28 @@ const moment = require('moment')
 
 
 class Controller {
+  static async showHistoryNow(req, res, next) {
+    try {
+      let {user_id} = req.query
+      if(!user_id) throw {status: 400, message: 'masukkan id user'}      
+      let result = await sq.query(`
+        select  
+          h.id as history_id, h.room_id , h.package_id , h.pay , h.type_discount , h.discount , h.start_kos, h.start_kos + interval '1 month' * p.duration - interval '1 day' as "end_kos" , 
+          p."name" as package_name , p.description , p.duration , p.discount , 
+          r."name" as room_name , r."size" , r.price , r.build_id, 
+          b."name" as build_name , b.address 
+        from history h 
+          inner join package p on p.deleted_at is null and p.id = h.package_id and h.start_kos + interval '1 month' * p.duration > now()
+          inner join room r on r.deleted_at is null and r.id = h.room_id 
+          inner join build b on b.deleted_at is null and b.id = r.build_id
+        where h.deleted_at is null and h.user_id = :id
+        limit 1
+      `, {replacements: {id: user_id}, type: QueryTypes.SELECT})
+      res.status(200).json({status: 200, message: 'success show history now', data: result})
+    } catch (error) {
+      next({status: 500, data: error})
+    }
+  }
   static async showHistory(req, res, next) {
     try {
       let {history_id, user_id, room_id, package_id, page, limit} = req.query

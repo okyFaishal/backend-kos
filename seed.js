@@ -111,12 +111,27 @@ async function start(){
           }
           // let pay = price * (duration - discount) - (price * acak(0 ,0 , 1, 2, 3, 0, 0, 0))
           let historyNew = {user_id: elUser.id, room_id: elRoom.id, package_id: pack.id, start_kos, pay, type_discount, discount}
-          for (let i = dataHistory.length - 1; i >= 0; i--) {
+          let i = dataHistory.length - 1
+          for (i; i >= 0; i--) {
             const elHistory = dataHistory[i];
             if(elHistory.room_id == elRoom.id || elHistory.user_id == elUser.id){
               historyNew.start_kos = moment(elHistory.start_kos).subtract(pack.duration, 'month')
               break;
             }
+            // let newDate = historyNew.start_kos
+            // let oldDate = elHistory.start_kos
+            // let duration = pack.duration
+            // // if(moment(oldDate).add(duration, 'month') >= moment(newDate) && moment(oldDate) < moment (newDate).add(duration, 'month')){
+            //   // console.log({
+            //   //   cek1: (elHistory.room_id == elRoom.id || elHistory.user_id == elUser.id),
+            //   //   cek: ((moment(elHistory.start_kos).add(pack.duration, 'month') >= moment(historyNew.start_kos) && moment(elHistory.start_kos) < moment (historyNew.start_kos).add(pack.duration, 'month'))),
+            //   //   start_kos_new: moment(historyNew.start_kos),
+            //   //   end_kos_new: moment(historyNew.start_kos).add(pack.duration, 'month'),
+            //   //   start_kos_old: moment(elHistory.start_kos),
+            //   //   end_kos_old: (moment(elHistory.start_kos).add(pack.duration, 'month')),
+            //   // })
+            //   historyNew.start_kos = moment(elHistory.start_kos).subtract(pack.duration, 'month')
+            // // }
           }
           dataHistory.push(historyNew)
         }

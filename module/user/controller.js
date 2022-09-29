@@ -43,7 +43,7 @@ class Controller {
         select 
           u.id, u.image_profile, u.username, u.email, u.contact, u.nik, u.status, ${!req.dataUsers.status_user?' u.public , u.public_religion , u.public_gender , u.religion , u.gender , u.birth_place , u.birth_date, ':''}
           h.id as "history_id", h.pay, h.start_kos ,h.start_kos + interval '1 month' - interval '1 day' * p.duration as "end_kos",
-          r.id as "room_id", r.name, r.size, r.price, 
+          r.id as "room_id", r.name as room_name, r.size, r.price, 
           b.id as "build_id", b.name, b.address, 
           p.id as "package_id", p.name, p.description, p.discount, p.duration, 
           sum(p2.pay) as "count_payment"
@@ -63,11 +63,12 @@ class Controller {
             data.push({
               image_profile: el.image_profile, 
               username: el.username,
+              room: el.room_name,
               religion: el.public_religion ? el.religion : '-',
               gender: el.public_gender ? el.gender : '-',
             })
           }else{
-            data.push({image_profile: 'default.jpg', username: el.username.slice(0, 1) + '***', religion: '-', gender: '-',})
+            data.push({image_profile: 'default.jpg', username: el.username.slice(0, 1) + '***', religion: '-', gender: '-', room: el.room_name})
           }
         })
         result = data
@@ -184,7 +185,7 @@ class Controller {
       if(dataCek.status_user == 'user'){
         let result = await sq.query(`
           select  
-            h.room_id , h.package_id , h.pay , h.type_discount , h.discount , h.start_kos , 
+            h.id as history_id, h.room_id , h.package_id , h.pay , h.type_discount , h.discount , h.start_kos, h.start_kos + interval '1 month' * p.duration - interval '1 day' as "end_kos" , 
             p."name" as package_name , p.description , p.duration , p.discount , 
             r."name" as room_name , r."size" , r.price , r.build_id, 
             b."name" as build_name , b.address 

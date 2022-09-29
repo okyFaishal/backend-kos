@@ -8,8 +8,8 @@ class Controller {
   static async showRoom(req, res, next){
     try {
       let {build_id, room_id, page, limit, name, start_date, end_date} = req.query
-      end_date ? true : end_date = new Date()
       start_date ? true : start_date = new Date()
+      end_date ? true : end_date = start_date
       let result = await sq.query(`
         select count(*) over() as "count", r.id as "room_id", r.build_id, u.id as user_id, b.name as "build_name", b.address, r.name, r.size, r.price, u.username , u.email , u.status , h.start_kos ,h.start_kos + interval '1 month' * p.duration - interval '1 day' as "end_kos"
         from room r 
@@ -39,7 +39,7 @@ class Controller {
         })
         if(cek) data.push({name: elResult.build_name, rooms: [{...elResult, ...{build_name: undefined}}]})
       })
-      res.status(200).json({status: 200, message: 'success show room', data: {data_payment: result, limit, pageNow: page, pageLast: limit ? Math.ceil(count/limit) : undefined, count}})
+      res.status(200).json({status: 200, message: 'success show room', data: {data_room: result, limit, pageNow: page, pageLast: limit ? Math.ceil(count/limit) : undefined, count}})
     } catch (error) {
       next({status: 500, data: error})
     }
