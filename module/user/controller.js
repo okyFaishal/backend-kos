@@ -85,7 +85,7 @@ class Controller {
       let result = await sq.query(`
         select 
           h.id as history_id, u.id as user_id, r.id as room_id, b.id as build_id, p.id as package_id, 
-          u.image_profile, u.image_profile , u.status_user , u.username , u.email , u.verify_email , u.contact , u.nik , u.birth_place , u.birth_date , u.religion , u.gender , u.emergency_name , u.emergency_contact , u.status , u.name_company , u.name_university , u.major , u."degree" , u.generation , 
+          u.image_ktp, u.image_profile , u.status_user , u.username , u.email , u.verify_email , u.contact , u.nik , u.birth_place , u.birth_date , u.religion , u.gender , u.emergency_name , u.emergency_contact , u.status , u.name_company , u.name_university , u.major , u."degree" , u.generation , 
           b."name" as build_name, b.address ,
           r."name" as room_name, r."size" , 
           p.description , p.duration ,
