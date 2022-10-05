@@ -504,17 +504,19 @@ class Controller {
       if(/Invalid date/i.test(date)) throw {status: 400, message: 'date tidak valid'}
 
       let result = await sq.query(`
-        select count(p.id) as count_payment, sum(p.pay)::integer as "total_payment", round(h.pay)::integer as "money", round(h.user_id) as "user_id"
-        from history h right join payment p on p.history_id = h.id and p.deleted_at is null
+        select count(p.id) as count_payment, sum(p.pay)::integer as "total_payment", round(h.pay)::integer as "money", round(h.user_id) as "user_id", r.price 
+        from history h right join room r ON r.deleted_at is null and r.id = h.room_id right join payment p on p.history_id = h.id and p.deleted_at is null 
         where h.id = :history_id and h.deleted_at is null
-        group by h.id 
+        group by h.id, r.id
       `,{
         replacements: {history_id},
         type: QueryTypes.SELECT
       })
+      // console.log(result)
       if(result.length == 0) throw {status: 402, message: 'data pembayaran tidak ditemukan'}
       if(result[0].money - result[0].total_payment == 0) throw {status: 400, message: `pembayaran telah lunas`}
       // if(result[0].count_payment > 2) throw {status: 400, message: `telah membayar 3 kali`}
+      if(result[0].count_payment == 1 && result[0].price > payment) throw {status: 400, message: `pembayaran minimal ${result[0].price}`}
       if(result[0].count_payment == 2 && result[0].money - result[0].total_payment > payment) throw {status: 400, message: `pembayaran terakhir diharuskan lunas, sejumlah ${result[0].money - result[0].total_payment}`}
       if(result[0].money - result[0].total_payment < payment) throw {status: 400, message: `pembayaran melebihi total tagihan, sejumlah  ${result[0].money - result[0].total_payment}`}
 
