@@ -326,10 +326,10 @@ class Controller {
           h.start_kos ,h.start_kos + interval '1 month' * p2.duration - interval '1 day' as "end_kos"
         from payment p 
           inner join "user" u on u.id = p.user_id
-          inner join history h on h.id = p.history_id  
-          inner join package p2 on p2.id = h.package_id 
-          inner join room r on r.id = h.room_id
-          inner join build b on b.id = r.build_id 
+          inner join history h on h.id = p.history_id and h.deleted_at is null 
+          inner join package p2 on p2.id = h.package_id and p2.deleted_at is null 
+          inner join room r on r.id = h.room_id and r.deleted_at is null 
+          inner join build b on b.id = r.build_id and b.deleted_at is null 
           left join payment p3 on p3.history_id = h.id and p3."date" <= p."date" 
         where p.deleted_at is null 
         ${payment_id?'and p.id = :payment_id':''}  
