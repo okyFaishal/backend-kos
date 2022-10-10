@@ -1,8 +1,0 @@
-MAIL=faishalsample07@gmail.com
-PASS=qtaysfmkucpsfmjq
-
-DB_USERNAME=postgres
-DB_PASSWORD=postgres
-DB_NAME=kos
-DB_HOST=127.0.0.1
-DB_PORT=5432
