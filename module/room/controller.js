@@ -11,7 +11,7 @@ class Controller {
       start_date ? true : start_date = new Date()
       end_date ? true : end_date = start_date
       let result = await sq.query(`
-        select count(*) over() as "count", r.id as "room_id", r.build_id, u.id as user_id, b.name as "build_name", b.address, r.name, r.size, r.price, u.username , u.email , u.status , h.start_kos ,h.start_kos + interval '1 month' * p.duration - interval '1 day' as "end_kos"
+        select count(*) over() as "count", h.id as history_id, r.id as "room_id", r.build_id, u.id as user_id, b.name as "build_name", b.address, r.name, r.size, r.price, u.username , u.email , u.status , h.start_kos ,h.start_kos + interval '1 month' * p.duration - interval '1 day' as "end_kos"
         from room r 
           inner join build b on b.id = r.build_id and b.deleted_at is null
           left join history h on h.room_id = r.id and h.deleted_at is null and :start_date < h.start_kos + interval '1 month' * (select p2.duration from package p2 where p2.id = h.package_id and p2.deleted_at is null limit 1) and :end_date > h.start_kos
