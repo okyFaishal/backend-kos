@@ -1,0 +1,8 @@
+MAIL=faishalsample07@gmail.com
+PASS=qtaysfmkucpsfmjq
+
+DB_USERNAME=postgres
+DB_PASSWORD=Grafika9
+DB_NAME=kos_app
+DB_HOST=serova.id
+DB_PORT=8000
