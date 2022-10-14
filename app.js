@@ -1,10 +1,12 @@
 require('dotenv').config()
 const express = require('express')
 const cors = require('cors')
+const morgan = require('morgan'); 
 const app = express()
 const routing = require('./routing/index')
 const errorHandling = require('./middleware/error-handling')
 
+app.use(morgan('dev'))
 app.use(express.static('asset'))
 app.use(cors())
 app.use(express.urlencoded({extended: false}))

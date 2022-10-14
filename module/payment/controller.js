@@ -35,10 +35,10 @@ class Controller {
               h.start_kos , h.start_kos + interval '1 month' * p.duration - interval '1 day' as "end_kos"
             from history h
               inner join "user" u on u.id = h.user_id 
-              inner join room r on r.deleted_at is null and r.id = h.room_id 
-              inner join build b on b.deleted_at is null and b.id = r.build_id 
-              inner join package p on p.deleted_at is null and p.id = h.package_id 
-              left join payment p2 on p2.deleted_at is null and p2.history_id  = h.id 
+              inner join room r on r.id = h.room_id 
+              inner join build b on b.id = r.build_id 
+              inner join package p on p.id = h.package_id 
+              left join payment p2 on p2.deleted_at is null and p2.history_id = h.id 
             where h.deleted_at is null 
             ${user_id?'and u.id=:user_id':''} 
             ${room_id?'and r.id=:room_id':''} 
@@ -55,17 +55,14 @@ class Controller {
           if(result.length == 0) throw {status: 402, message: 'data tidak ditemukan'}
           worksheet = workbook.addWorksheet('History');
           worksheet.columns = [
-            {header: 'Build', key: 'build', width: 15},
-            {header: 'Address', key: 'address', width: 20},
-            {header: 'Package', key: 'package', width: 12},
-            {header: 'Duration', key: 'duration', width: 13},
-            {header: 'Room', key: 'room', width: 10},
-            {header: 'Size', key: 'size', width: 10},
             {header: 'Username', key: 'username', width: 15},
-            {header: 'Email', key: 'email', width: 25},
-            {header: 'Status', key: 'status', width: 10},
+            {header: 'Build', key: 'build', width: 15},
+            {header: 'Room', key: 'room', width: 10},
+            {header: 'Package', key: 'package', width: 12},
+            {header: 'Duration', key: 'duration', width: 15},
             {header: 'Type Discount', key: 'type_discount', width: 15},
             {header: 'Discount', key: 'discount', width: 15},
+            {header: 'Total Discount', key: 'total_discount', width: 15},
             {header: 'Price Room', key: 'price_room', width: 17},
             {header: 'Total Price', key: 'total_price', width: 17},
             {header: 'Total Payment', key: 'total_payment', width: 17},
@@ -73,8 +70,34 @@ class Controller {
             {header: 'Start Kos', key: 'start_kos', width: 19},
             {header: 'End Kos', key: 'end_kos', width: 19 }
           ]
-          for (const row of result) {
-            worksheet.addRow(row);
+          for (let i = 0; i < result.length; i++) {
+            let row = result[i]
+            switch (result[i].type_discount) {
+              case '%':
+                result[i].total_discount = result[i].total_discount * (result[i].discount / 100)
+                break;
+              case 'month':
+                result[i].total_discount = result[i].price_room * result[i].discount
+                break;
+              case 'nominal':
+                result[i].total_discount = result[i].discount
+                break;
+            }
+            let keluar = false
+            if(result[i].total_price == -1) {
+              keluar = true
+              result[i].total_price = (row.price_room * row.duration) - row.total_discount
+              result[i].deficiency = result[i].total_price - row.total_discount
+            }
+            let resRow = worksheet.addRow(result[i]);
+            if(keluar){
+              resRow.fill = {
+                type: 'pattern',
+                pattern:'solid',
+                fgColor: { argb: 'ffea11' }
+                // bgColor:{argb:'#ffea11'}
+            };
+            }
           }
           const endRowHistory = worksheet.lastRow.number + 1;
           worksheet.autoFilter = 'A1:Q1';
@@ -86,9 +109,9 @@ class Controller {
               pattern: 'solid',
               fgColor: { argb: 'f5b914' }
             }
-            cell.num
           })
           firstRowHistory.commit()
+          worksheet.getColumn('total_discount').numFmt = '_-Rp* #,##0_-;-Rp* #,##0_-;_-Rp* "-"_-;_-@_-'
           worksheet.getColumn('price_room').numFmt = '_-Rp* #,##0_-;-Rp* #,##0_-;_-Rp* "-"_-;_-@_-'
           worksheet.getColumn('total_price').numFmt = '_-Rp* #,##0_-;-Rp* #,##0_-;_-Rp* "-"_-;_-@_-'
           worksheet.getColumn('total_payment').numFmt = '_-Rp* #,##0_-;-Rp* #,##0_-;_-Rp* "-"_-;_-@_-'
@@ -96,7 +119,9 @@ class Controller {
           worksheet.getColumn('start_kos').numFmt = `[$-en-ID]dd mmmm yyyy`
           worksheet.getColumn('end_kos').numFmt = `[$-en-ID]dd mmmm yyyy`
           worksheet.addRow({
-            total_payment: { formula: `SUM(N2:N${endRowHistory - 1})` },
+            total_payment: { formula: `SUM(J2:J${endRowHistory - 1})` },
+            total_discount: { formula: `SUM(G2:G${endRowHistory - 1})` },
+            total_price: { formula: `SUM(I2:I${endRowHistory - 1})` },
           });
         case 'all':
           if(mode == 'history') break
@@ -114,14 +139,14 @@ class Controller {
               h.start_kos , h.start_kos + interval '1 month' * p.duration - interval '1 day' as "end_kos"
             from history h
               inner join "user" u on u.id = h.user_id 
-              inner join room r on r.deleted_at is null and r.id = h.room_id 
-              inner join build b on b.deleted_at is null and b.id = r.build_id 
-              inner join package p on p.deleted_at is null and p.id = h.package_id 
+              inner join room r on r.id = h.room_id 
+              inner join build b on b.id = r.build_id 
+              inner join package p on p.id = h.package_id 
               left join payment p2 on p2.deleted_at is null and p2.history_id  = h.id 
             where h.deleted_at is null 
             ${user_id?'and u.id=:user_id':''} 
             ${room_id?'and r.id=:room_id':''} 
-            ${package_id?'and p.id=:package_id':''}
+            ${package_id?'and p.id = :package_id':''}
             ${history_id?'and h.id = :history_id':''}
             ${build_id?'and b.build_id = :build_id':''}
             group by h.id, u.id, r.id, b.id, p.id
@@ -228,11 +253,11 @@ class Controller {
               h.start_kos ,h.start_kos + interval '1 month' * p2.duration - interval '1 day' as "end_kos"
             from payment p 
               inner join "user" u on u.id = p.user_id
-              inner join history h on h.id = p.history_id  
+              inner join history h on h.id = p.history_id and h.deleted_at is null
               inner join package p2 on p2.id = h.package_id 
               inner join room r on r.id = h.room_id
               inner join build b on b.id = r.build_id 
-              left join payment p3 on p3.history_id = h.id and p3."date" <= p."date" 
+              left join payment p3 on p3.history_id = h.id and p3."date" <= p."date" and p3.deleted_at is null
             where p.deleted_at is null 
             ${user_id?'and u.id = :user_id':''}  
             ${room_id?'and r.id=:room_id':''} 
@@ -327,9 +352,9 @@ class Controller {
         from payment p 
           inner join "user" u on u.id = p.user_id
           inner join history h on h.id = p.history_id and h.deleted_at is null 
-          inner join package p2 on p2.id = h.package_id and p2.deleted_at is null 
-          inner join room r on r.id = h.room_id and r.deleted_at is null 
-          inner join build b on b.id = r.build_id and b.deleted_at is null 
+          inner join package p2 on p2.id = h.package_id  
+          inner join room r on r.id = h.room_id  
+          inner join build b on b.id = r.build_id  
           left join payment p3 on p3.history_id = h.id and p3."date" <= p."date" 
         where p.deleted_at is null 
         ${payment_id?'and p.id = :payment_id':''}  
@@ -415,6 +440,7 @@ class Controller {
       if(/Invalid date/i.test(start_kos)) throw {status: 400, message: 'start kos tidak valid'}
       if(/Invalid date/i.test(date)) throw {status: 400, message: 'date tidak valid'}
 
+      //cek data user, package, dan room di database
       let result = await sq.query(`
         select 
           u.status_user, 
@@ -425,19 +451,19 @@ class Controller {
           p.duration,
           p.discount 
         from "user" u 
-          left join package p on p.deleted_at is null and p.id = :package_id
-          left join room r on r.deleted_at is null and r.id = :room_id
+          left join package p on p.id = :package_id
+          left join room r on r.id = :room_id
         where u.id = :user_id
       `,{
         replacements: {user_id, package_id, room_id},
         type: QueryTypes.SELECT
       })
-      if(result.length == 0) throw {status: 402, message: 'room tidak ditemukan'}
+      if(result.length == 0) throw {status: 402, message: 'user tidak ditemukan'}
       if(!result[0].package_id) throw {status: 402, message: 'package tidak ditemukan'}
       if(!result[0].room_id) throw {status: 402, message: 'room tidak ditemukan'}
       if(result[0].status_user) throw {status: 400, message: 'admin tidak bisa memesan'}
 
-      //chek room
+      //chek ruangan kosong atau terisi
       let result1 = await sq.query(`
         select 
           r.price,
@@ -445,15 +471,17 @@ class Controller {
           p.duration,
           p.discount 
         from history h 
-          inner join package p on h.room_id = :room_id and p.id = h.package_id and p.deleted_at is null
-          inner join room r on r.id = h.room_id  and h.deleted_at is null and
-              (timestamp :start_kos < h.start_kos + interval '1 month' * p.duration and timestamp :start_kos + interval '1 month' * p.duration > h.start_kos) 
+          inner join package p on h.room_id = :room_id and p.id = h.package_id
+          inner join room r on r.id = h.room_id  and
+          (timestamp :start_kos::date < (h.start_kos + interval '1 month' * p.duration)::date and (timestamp :start_kos + interval '1 month' * p.duration)::date > h.start_kos::date)
+        where h.deleted_at is null and h.pay != -1 
       `,{
         replacements: {room_id, start_kos: start_kos.format()},
         type: QueryTypes.SELECT
       })
       if(result1.length) throw {status: 402, message: 'dalam waktu tersebut kamar masih terisi'}
 
+      //menghitung tagihan yang harus dibayarkan
       let total_payment = result[0].price * result[0].duration
       switch (type_discount) {
         case '%':
@@ -503,16 +531,23 @@ class Controller {
       payment = Number.parseInt(payment)
       if(/Invalid date/i.test(date)) throw {status: 400, message: 'date tidak valid'}
 
+      //mencari tagihan
       let result = await sq.query(`
-        select count(p.id) as count_payment, sum(p.pay)::integer as "total_payment", round(h.pay)::integer as "money", round(h.user_id) as "user_id", r.price 
-        from history h right join room r ON r.deleted_at is null and r.id = h.room_id right join payment p on p.history_id = h.id and p.deleted_at is null 
+        select 
+          count(p.id) as count_payment, 
+          sum(p.pay)::integer as "total_payment", 
+          round(h.pay)::integer as "money", 
+          round(h.user_id) as "user_id", 
+          r.price 
+        from history h 
+          right join room r ON r.id = h.room_id 
+          right join payment p on p.history_id = h.id  
         where h.id = :history_id and h.deleted_at is null
         group by h.id, r.id
       `,{
         replacements: {history_id},
         type: QueryTypes.SELECT
       })
-      // console.log(result)
       if(result.length == 0) throw {status: 402, message: 'data pembayaran tidak ditemukan'}
       if(result[0].money - result[0].total_payment == 0) throw {status: 400, message: `pembayaran telah lunas`}
       // if(result[0].count_payment > 2) throw {status: 400, message: `telah membayar 3 kali`}
@@ -542,11 +577,16 @@ class Controller {
         data.date = date
       }
       if(payment){
+        //mencari tagihan
         let result = await sq.query(`
-          select round(p.pay) as "pay", sum(p2.pay) as "total_payment", round(h.pay) as "money", round(h.user_id) as "user_id"
+          select 
+            round(p.pay) as "pay", 
+            sum(p2.pay) as "total_payment", 
+            round(h.pay) as "money", 
+            round(h.user_id) as "user_id"
           from payment p 
-            inner join payment p2 on p.history_id = p2.history_id 
-            inner join history h on p.history_id = h.id 
+            inner join payment p2 on p.history_id = p2.history_id and p2.deleted_at is null
+            inner join history h on p.history_id = h.id and h.deleted_at is null
           where p.id = :id 
           group by p.id, h.id
         `,{

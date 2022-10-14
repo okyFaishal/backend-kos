@@ -1,6 +1,7 @@
 const sq = require('../../config/connection');
 const room = require('./model');
 const build = require('../build/model');
+const history = require('../history/model');
 const { QueryTypes } = require('sequelize');
 
 
@@ -14,8 +15,8 @@ class Controller {
         select count(*) over() as "count", h.id as history_id, r.id as "room_id", r.build_id, u.id as user_id, b.name as "build_name", b.address, r.name, r.size, r.price, u.username , u.email , u.status , h.start_kos ,h.start_kos + interval '1 month' * p.duration - interval '1 day' as "end_kos"
         from room r 
           inner join build b on b.id = r.build_id and b.deleted_at is null
-          left join history h on h.room_id = r.id and h.deleted_at is null and :start_date < h.start_kos + interval '1 month' * (select p2.duration from package p2 where p2.id = h.package_id and p2.deleted_at is null limit 1) and :end_date > h.start_kos
-          left join package p on p.id = h.package_id and p.deleted_at is null
+          left join history h on h.pay != -1 and h.room_id = r.id and h.deleted_at is null and :start_date::date < (h.start_kos + interval '1 month' * (select p2.duration from package p2 where p2.id = h.package_id limit 1))::date and :end_date::date > h.start_kos::date
+          left join package p on p.id = h.package_id
           left join "user" u on u.id = h.user_id 
         where r.deleted_at is null ${build_id?'and b.id = :build_id':''} ${room_id?'and r.id = :room_id':''} ${name?'and r.name LIKE :name':''}
         order by r."name" ASC
@@ -51,7 +52,7 @@ class Controller {
         select count(*) as "total_count", count(h.id) as "fill_count" ${mode == 'build' ? ', b."name", b.id as "build_id"':''}
         from room r
           inner join build b on b.id = r.build_id and b.deleted_at is null
-          left join history h on h.room_id = r.id and h.deleted_at is null and start_kos < now() and h.start_kos + interval '1 month' * (select p2.duration from package p2 where p2.id = h.package_id and p2.deleted_at is null limit 1) > now()
+          left join history h on h.room_id = r.id and h.deleted_at is null and start_kos < now() and h.start_kos + interval '1 month' * (select p2.duration from package p2 where p2.id = h.package_id limit 1) > now()
         where r.deleted_at is null 
         ${mode == 'build' ? 'group by b.id':''}
       `, {type: QueryTypes.SELECT})
@@ -64,15 +65,13 @@ class Controller {
   static async createRoom(req, res, next){
     try {
       const {build_id, name, size, price} = req.body
-
       if(!req.dataUsers.status_user) throw {status: 400, message: 'tidak memiliki akses'}
       if(!(build_id, name && size && price)) throw {status: 400, message: 'lengkapi data'}
       if(price && (/\D/.test(price))) throw {status: 400, message: 'price tidak valid'}
+      let cek = await room.findOne({where: {build_id, name}})
+      if(cek) throw {status: 400, message: 'Bangunan Telah Memiliki Nama Ruangan '+name}
 
-      let result = await build.findOne({where: {id: build_id}})
-      if(!result) throw {status: 400, message: 'build tidak ditemukan'}
-
-      result = await room.create({build_id, name, size, price})
+      let result = await room.create({build_id, name, size, price})
       res.status(200).json({status: 200, message: 'success create room', data: result})
     } catch (error) {
       next({status: 500, data: error})
@@ -82,11 +81,12 @@ class Controller {
     try {
       const {id} = req.params
       const {name, size, price} = req.body
-
       if(!req.dataUsers.status_user) throw {status: 400, message: 'tidak memiliki akses'}
       if(!id) throw {status: 400, message: 'masukkan id yang akan diupdate'}
       if(!(name || size || price)) throw {status: 400, message: 'tidak ada yang diupdate'}
       if(price && (/\D/.test(price))) throw {status: 400, message: 'price tidak valid'}
+      let cek = await room.findOne({where: {build_id, name}})
+      if(cek) throw {status: 400, message: 'Bangunan Telah Memiliki Nama Ruangan '+name}
 
       let result = await room.update({name, size, price}, {where: {id}})
       if(result[0] == 0) throw {status: 400, message: 'tidak menemukan data yang akan diupdate'}

@@ -35,6 +35,12 @@ const room = sq.define(
     createdAt: 'created_at',
     paranoid: true,
     freezeTableName: true,
+    indexes: [
+        {
+            unique: true,
+            fields: ['build_id', 'name']
+        }
+    ]
   }
 );
 

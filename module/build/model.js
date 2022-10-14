@@ -26,6 +26,12 @@ const build = sq.define(
     createdAt: 'created_at',
     paranoid: true,
     freezeTableName: true,
+    indexes: [
+        {
+            unique: true,
+            fields: ['name', 'address']
+        }
+    ]
   }
 );
 

@@ -13,11 +13,10 @@ require("fs").readdirSync(normalizedPath).forEach(function(file) {
 })
 
 async function start() {
-  if(command == 'refresh' || !command){
-    await koneksi.sync({ force: true })
-    await admin()
+  if(command == 'refresh'){
+    await koneksi.sync({ force: false })
     console.log('Database Berhasil di Sinkronisasi')
-  }else if(command == 'reset'){
+  }else if(command == 'reset' || !command){
     await koneksi.drop()
     await koneksi.sync({ force: true })
     await admin()
