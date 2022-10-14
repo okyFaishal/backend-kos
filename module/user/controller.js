@@ -31,12 +31,12 @@ class Controller {
         let result = await sq.query(`
           select b.id 
           from history h 
-            inner join package p on p.deleted_at is null and p.id = h.package_id and h.start_kos + interval '1 month' * p.duration > now()
-            inner join room r on r.deleted_at is null and r.id = h.room_id 
-            inner join build b on b.deleted_at is null and b.id = r.build_id
-          where h.deleted_at is null and h.user_id = :id
+          inner join package p on p.id = h.package_id and (h.start_kos + interval '1 month' * p.duration)::date > now()::date and h.start_kos ::date < now()::date
+            inner join room r on r.id = h.room_id 
+            inner join build b on b.id = r.build_id
+          where h.deleted_at is null and h.user_id = :id and h.pay != -1
         `, {replacements: {id: req.dataUsers.id}, type: QueryTypes.SELECT})
-        if(result.length == 0) throw {status: 400, message: 'tidak menyewa kamar'}
+        if(result.length == 0) throw {status: 400, message: 'Tidak Menyewa Kamar'}
         build_id = result[0].id
       }
       let result = await sq.query(`
@@ -48,14 +48,14 @@ class Controller {
           p.id as "package_id", p.name, p.description, p.discount, p.duration, 
           sum(p2.pay) as "count_payment"
         from "user" u 
-          inner join history h on h.user_id = u.id
+          inner join history h on h.user_id = u.id and h.deleted_at is null
           inner join room r on r.id = h.room_id
           inner join build b on b.id = r.build_id
           inner join package p on p.id = h.package_id
-          inner join payment p2 on p2.history_id = h.id
-        where start_kos < now() and h.start_kos + interval '1 month' * p.duration > now() ${build_id?'and build_id = :build_id':''}
+          inner join payment p2 on p2.history_id = h.id and p2.deleted_at is null
+        where h.pay != -1 and u.id != :id and start_kos < now() and h.start_kos + interval '1 month' * p.duration > now() ${build_id?'and build_id = :build_id':''}
         group by u.id, h.id, r.id, b.id, p.id
-      `, {replacements: {build_id}, type: QueryTypes.SELECT})
+      `, {replacements: {build_id, id: req.dataUsers.id}, type: QueryTypes.SELECT})
       if(!req.dataUsers.status_user){
         let data = []
         result.forEach(el=>{

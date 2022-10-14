@@ -378,6 +378,15 @@ class Controller {
       next({status: 500, data: error})
     }
   }
+  static async showIncome(req, res, next) {
+    try {
+      let result = await sq.query(`select sum(pay), to_char("date" , 'YYYY-MM') as bulan from payment where deleted_at is null group by bulan order by bulan desc`, {type: QueryTypes.SELECT})
+      if(result.length == 0) throw {status: 402, message: 'data tidak ditemukan'}
+      res.status(200).json({status: 200, message: 'Success Show Income', data: result})
+    } catch (error) {
+      next({status: 500, data: error})
+    }
+  }
   static async showCountPayment(req, res, next) {
     try {
       let {mode} = req.query
