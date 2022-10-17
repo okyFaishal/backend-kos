@@ -182,23 +182,23 @@ class Controller {
       // attributes: {exclude: ['password']}, 
       
       dataCek = {...dataCek.dataValues, status_user: dataCek.status_user?'admin':'user'}  //tentukan admin / user
-      if(dataCek.status_user == 'user'){
-        let result = await sq.query(`
-          select  
-            h.id as history_id, h.room_id , h.package_id , h.pay , h.type_discount , h.discount , h.start_kos, h.start_kos + interval '1 month' * p.duration - interval '1 day' as "end_kos" , 
-            p."name" as package_name , p.description , p.duration , p.discount , 
-            r."name" as room_name , r."size" , r.price , r.build_id, 
-            b."name" as build_name , b.address 
-          from history h 
-            inner join package p on p.deleted_at is null and p.id = h.package_id and h.start_kos + interval '1 month' * p.duration > now()
-            inner join room r on r.deleted_at is null and r.id = h.room_id 
-            inner join build b on b.deleted_at is null and b.id = r.build_id
-          where h.deleted_at is null and h.user_id = :id
-        `, {replacements: {id: dataCek.id}, type: QueryTypes.SELECT})
-        console.log(result)
-        console.log(result.length)
-        if(result.length) dataCek = {...dataCek, ...result[0]}
-      }
+      // if(dataCek.status_user == 'user'){
+      //   let result = await sq.query(`
+      //     select  
+      //       h.id as history_id, h.room_id , h.package_id , h.pay , h.type_discount , h.discount , h.start_kos, h.start_kos + interval '1 month' * p.duration - interval '1 day' as "end_kos" , 
+      //       p."name" as package_name , p.description , p.duration , p.discount , 
+      //       r."name" as room_name , r."size" , r.price , r.build_id, 
+      //       b."name" as build_name , b.address 
+      //     from history h 
+      //       inner join package p on p.deleted_at is null and p.id = h.package_id and h.start_kos + interval '1 month' * p.duration > now()
+      //       inner join room r on r.deleted_at is null and r.id = h.room_id 
+      //       inner join build b on b.deleted_at is null and b.id = r.build_id
+      //     where h.deleted_at is null and h.user_id = :id
+      //   `, {replacements: {id: dataCek.id}, type: QueryTypes.SELECT})
+      //   console.log(result)
+      //   console.log(result.length)
+      //   if(result.length) dataCek = {...dataCek, ...result[0]}
+      // }
 
       // dataCek = {...dataCek.dataValues, status_user: dataCek.status_user?'admin':'user'}  //tentukan admin / user
       const token = generateToken(dataCek) //buat token
@@ -225,10 +225,11 @@ class Controller {
   }
   static async updateProfile(req, res, next) {
     try {
-      const {username, email, contact, nik, birth_place, religion, gender, emergency_contact, emergency_name, status, name_company, name_university, major, degree, generation} = req.body
+      const {username, email, contact, nik, birth_place, religion, gender, emergency_contact, emergency_name, status, name_company, name_university, major, degree, generation, public1, public_gender, public_religion} = req.body
       const birth_date = req.body.birth_date ? new Date(req.body.birth_date) : undefined
       const image_profile = req.files.image_profile ? req.files.image_profile[0].filename : undefined
       const image_ktp = req.files.image_ktp ? req.files.image_ktp[0].filename : undefined
+      // console.log(image_profile, image_ktp)
       if(email) var verify_email = false
 
       if(contact && /\D/.test(contact)) throw {status: 400, message: 'contact tidak valid'}
@@ -241,11 +242,12 @@ class Controller {
 
       //update
       let result = await user.update(
-        {username, email, verify_email, contact, nik, birth_place, birth_date, religion, gender, emergency_contact, emergency_name, status, name_company, name_university, major, degree, generation, image_profile, image_ktp}, 
+        {username, email, verify_email, contact, nik, birth_place, birth_date, religion, gender, emergency_contact, emergency_name, status, name_company, name_university, major, degree, generation, image_profile, image_ktp, "public": public1, public_gender, public_religion}, 
         {where: {id: req.dataUsers.id}}
       )
       //show new data
       result = await user.findOne({attributes: {exclude: ['password']}, where: {id: req.dataUsers.id}})
+      // console.log(result)
 
       result = {...result.dataValues, status_user: result.status_user?'admin':'user', password: undefined}  //tentukan admin / user
       const token = generateToken(result) //buat token

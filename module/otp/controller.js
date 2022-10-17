@@ -3,8 +3,8 @@ const sq = require('../../config/connection');
 const user = require('../user/model');
 const otp = require('./model');
 const kirimEmail = require('../../helper/kirimEmail')
-const {verifyToken} = require('../../helper/jwt')
 const {hashPassword, compare} = require('../../helper/bcrypt');
+const {generateToken, verifyToken} = require('../../helper/jwt');
 const { QueryTypes } = require('sequelize');
 
 
@@ -106,7 +106,11 @@ class Controller {
         await otp.destroy({where: {user_id: id, type: 'forgot password'}})
       }else throw {status: 400, message: 'Type Tidak Valid'}
 
-      res.status(200).json({status: 200, message: `berhasil ${type}`})
+      let data = await user.findOne({where: {id: dataUsers.id}})
+      data = {...data.dataValues, password: undefined, status_user: data.status_user?'admin':'user'}  //tentukan admin / user
+      console.log(data)
+      const newToken = generateToken(data) //buat token
+      res.status(200).json({status: 200, message: `berhasil ${type}`, data: {...data, token: newToken}})
     } catch (error) {
       next({status: 500, data: error})
     }
