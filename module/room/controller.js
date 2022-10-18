@@ -52,7 +52,7 @@ class Controller {
         select count(*) as "total_count", count(h.id) as "fill_count" ${mode == 'build' ? ', b."name", b.id as "build_id"':''}
         from room r
           inner join build b on b.id = r.build_id and b.deleted_at is null
-          left join history h on h.room_id = r.id and h.deleted_at is null and start_kos < now() and h.start_kos + interval '1 month' * (select p2.duration from package p2 where p2.id = h.package_id limit 1) > now()
+          left join history h on h.room_id = r.id and h.deleted_at is null and h.pay != -1 and start_kos::date < now()::date and (h.start_kos + interval '1 month' * (select p2.duration from package p2 where p2.id = h.package_id limit 1))::date > now()::date
         where r.deleted_at is null 
         ${mode == 'build' ? 'group by b.id':''}
       `, {type: QueryTypes.SELECT})
