@@ -63,15 +63,16 @@ class Controller {
             {header: 'Type Discount', key: 'type_discount', width: 15},
             {header: 'Discount', key: 'discount', width: 15},
             {header: 'Total Discount', key: 'total_discount', width: 15},
-            {header: 'Price Room', key: 'price_room', width: 17},
-            {header: 'Total Price', key: 'total_price', width: 17},
-            {header: 'Total Payment', key: 'total_payment', width: 17},
-            {header: 'Deficiency', key: 'deficiency', width: 17},
+            {header: 'Price Room', key: 'price_room', width: 19},
+            {header: 'Total Price', key: 'total_price', width: 19},
+            {header: 'Total Payment', key: 'total_payment', width: 19},
+            {header: 'Deficiency', key: 'deficiency', width: 19},
             {header: 'Start Kos', key: 'start_kos', width: 19},
             {header: 'End Kos', key: 'end_kos', width: 19 }
           ]
           for (let i = 0; i < result.length; i++) {
             let row = result[i]
+            //menghitung total discount
             switch (result[i].type_discount) {
               case '%':
                 result[i].total_discount = result[i].total_discount * (result[i].discount / 100)
@@ -83,24 +84,25 @@ class Controller {
                 result[i].total_discount = result[i].discount
                 break;
             }
-            let keluar = false
+            //jika terdapat orang yang keluar saat ngekos
             if(result[i].total_price == -1) {
-              keluar = true
               result[i].total_price = (row.price_room * row.duration) - row.total_discount
-              result[i].deficiency = result[i].total_price - row.total_discount
+              result[i].deficiency = result[i].total_price - row.total_payment
+              result[i].keluar = true
+            }else{
+              result[i].keluar = false
             }
             let resRow = worksheet.addRow(result[i]);
-            if(keluar){
+            if(result[i].keluar){
               resRow.fill = {
                 type: 'pattern',
                 pattern:'solid',
                 fgColor: { argb: 'ffea11' }
-                // bgColor:{argb:'#ffea11'}
             };
             }
           }
           const endRowHistory = worksheet.lastRow.number + 1;
-          worksheet.autoFilter = 'A1:Q1';
+          worksheet.autoFilter = 'A1:N1';
           let firstRowHistory = worksheet.getRow(1)
           firstRowHistory.height = 20
           firstRowHistory.eachCell((cell, i)=>{
@@ -119,88 +121,86 @@ class Controller {
           worksheet.getColumn('start_kos').numFmt = `[$-en-ID]dd mmmm yyyy`
           worksheet.getColumn('end_kos').numFmt = `[$-en-ID]dd mmmm yyyy`
           worksheet.addRow({
-            total_payment: { formula: `SUM(J2:J${endRowHistory - 1})` },
-            total_discount: { formula: `SUM(G2:G${endRowHistory - 1})` },
-            total_price: { formula: `SUM(I2:I${endRowHistory - 1})` },
+            total_discount: { formula: `SUM(H2:H${endRowHistory - 1})` },
+            total_price: { formula: `SUM(J2:J${endRowHistory - 1})` },
+            total_payment: { formula: `SUM(K2:K${endRowHistory - 1})` },
           });
         case 'all':
           if(mode == 'history') break
         case 'user': //===== user =====
           //========== history ==========
-          result = await sq.query(`
-            select 
-              h.id as history_id, u.id as user_id, r.id as room_id, b.id as build_id, p.id as package_id, u.image_profile,
-              u.username , u.email , u.status ,
-              b."name" as build, b.address ,
-              r."name" as room, r."size" , 
-              p.description , p.duration , p."name" as "package",
-              h.type_discount, h.discount, 
-              r.price as "price_room", h.pay as "total_price", sum(p2.pay)::integer as "total_payment", (h.pay - sum(p2.pay))::integer as "deficiency",
-              h.start_kos , h.start_kos + interval '1 month' * p.duration - interval '1 day' as "end_kos"
-            from history h
-              inner join "user" u on u.id = h.user_id 
-              inner join room r on r.id = h.room_id 
-              inner join build b on b.id = r.build_id 
-              inner join package p on p.id = h.package_id 
-              left join payment p2 on p2.deleted_at is null and p2.history_id  = h.id 
-            where h.deleted_at is null 
-            ${user_id?'and u.id=:user_id':''} 
-            ${room_id?'and r.id=:room_id':''} 
-            ${package_id?'and p.id = :package_id':''}
-            ${history_id?'and h.id = :history_id':''}
-            ${build_id?'and b.build_id = :build_id':''}
-            group by h.id, u.id, r.id, b.id, p.id
-            order by h.updated_at desc
-          `,{
-            replacements: {user_id, package_id, room_id},
-            type: QueryTypes.SELECT
-          })
-          // throw {status: 400, message: result}
-          if(result.length == 0) throw {status: 402, message: 'data tidak ditemukan'}
-          let result1 = []
-          let idResult1 = []
-          result.forEach(el => {
-            let status = true
-            for (let i = 0; i < result1.length; i++) {
-              const el1 = result1[i];
-              if(el1.user_id == el.user_id){
-                status = false
-                if(el1.history_id != el.history_id){
-                  el1.total_price_user += el.total_price
-                  el1.total_payment_user += el.total_payment
+          let data = []
+          for (let i = 0; i < result.length; i++) {
+            const item = result[i];
+            let indexData = data.length
+            let dataSementara = {
+              total_price_user: item.total_price,
+              total_payment_user: item.total_payment,
+              total_discount_user: item.total_discount
+            }
+            for (let o = 0; o < data.length; o++) {
+              const itemData = data[o];
+              // console.log(itemData.user_id, item.user_id)
+              // console.log(itemData.user_id, item.user_id, o)
+              if(itemData.user_id == item.user_id) {
+                indexData = o
+                // console.log("11", dataSementara)
+                dataSementara = {
+                  total_price_user: dataSementara.total_price_user + itemData.total_price_user, 
+                  total_payment_user: dataSementara.total_payment_user + itemData.total_payment_user, 
+                  total_discount_user: dataSementara.total_discount_user + itemData.total_discount_user
                 }
-              }
-              if(el1.user_id == el.user_id && moment(el1.start_kos) < moment(el.start_kos) && el1.history_id != el.history_id){
-                el.total_price_user = el1.total_price_user
-                el.total_payment_user = el1.total_payment_user
-                result1.splice(i, 1, el)
-                idResult1.splice(i, 1, el.history_id)
-                status = false
-                break
+                // console.log("22", dataSementara)
+                break;
               }
             }
-            if(status){
-              el.total_price_user = el.total_price
-              el.total_payment_user = el.total_payment
-              result1.push(el)
-              idResult1.push(el.history_id)
+            // console.log(item, dataSementara)
+            if(!(moment() < moment(item.end_kos) && moment() > moment(item.start_kos))){ //user yang tidak memesan saat ini
+              // console.log('cek1', item.start_kos, data[indexData], item)
+              if((data[indexData])){ //data user sudah dibuat
+                dataSementara.build = data[indexData].build
+                dataSementara.package = data[indexData].package
+                dataSementara.duration = data[indexData].duration
+                dataSementara.room = data[indexData].room
+                dataSementara.type_discount = data[indexData].type_discount
+                dataSementara.discount = data[indexData].discount
+                dataSementara.price_room = data[indexData].price_room
+                dataSementara.total_price = data[indexData].total_price
+                dataSementara.total_payment = data[indexData].total_payment
+                dataSementara.deficiency = data[indexData].deficiency
+                dataSementara.start_kos = data[indexData].start_kos
+                dataSementara.end_kos = data[indexData].end_kos
+              }else{ //data user belum dibuat
+                dataSementara.build = null
+                dataSementara.package = null
+                dataSementara.duration = null
+                dataSementara.room = null
+                dataSementara.type_discount = null
+                dataSementara.discount = null
+                dataSementara.price_room = null
+                dataSementara.total_price = null
+                dataSementara.total_payment = null
+                dataSementara.deficiency = null
+                dataSementara.start_kos = null
+                dataSementara.end_kos = null
+              }
             }
-          });
+            data[indexData] = {...item, ...dataSementara}
+          }
+          // console.log(data)
+          if(data.length == 0) throw {status: 402, message: 'data tidak ditemukan'}
           worksheet = workbook.addWorksheet('User');
           worksheet.columns = [
             {header: 'Username', key: 'username', width: 15},
-            {header: 'Email', key: 'email', width: 25},
-            {header: 'Status', key: 'status', width: 10},
-            {header: 'Total Price User', key: 'total_price_user', width: 18},
-            {header: 'Total Payment User', key: 'total_payment_user', width: 18},
+            {header: 'Total Price', key: 'total_price_user', width: 18},
+            {header: 'Total Payment', key: 'total_payment_user', width: 18},
+            {header: 'Total Discount', key: 'total_discount_user', width: 18},
             {header: 'Build', key: 'build', width: 15},
-            {header: 'Address', key: 'address', width: 20},
             {header: 'Package', key: 'package', width: 12},
-            {header: 'Duration', key: 'duration', width: 13},
+            {header: 'Duration', key: 'duration', width: 12},
             {header: 'Room', key: 'room', width: 10},
-            {header: 'Size', key: 'size', width: 10},
-            {header: 'Type Discount', key: 'type_discount', width: 15},
-            {header: 'Discount', key: 'discount', width: 15},
+            {header: 'Type Discount', key: 'type_discount', width: 16},
+            {header: 'Discount', key: 'discount', width: 10},
             {header: 'Price Room', key: 'price_room', width: 17},
             {header: 'Total Price', key: 'total_price', width: 17},
             {header: 'Total Payment', key: 'total_payment', width: 17},
@@ -208,7 +208,7 @@ class Controller {
             {header: 'Start Kos', key: 'start_kos', width: 19},
             {header: 'End Kos', key: 'end_kos', width: 19 }
           ]
-          for (const row of result1) {
+          for (const row of data) {
             worksheet.addRow(row);
           }
           const endRowUser = worksheet.lastRow.number + 1;
@@ -226,6 +226,7 @@ class Controller {
           firstRowUser.commit()
           worksheet.getColumn('total_price_user').numFmt = '_-Rp* #,##0_-;-Rp* #,##0_-;_-Rp* "-"_-;_-@_-'
           worksheet.getColumn('total_payment_user').numFmt = '_-Rp* #,##0_-;-Rp* #,##0_-;_-Rp* "-"_-;_-@_-'
+          worksheet.getColumn('total_discount_user').numFmt = '_-Rp* #,##0_-;-Rp* #,##0_-;_-Rp* "-"_-;_-@_-'
           worksheet.getColumn('price_room').numFmt = '_-Rp* #,##0_-;-Rp* #,##0_-;_-Rp* "-"_-;_-@_-'
           worksheet.getColumn('total_price').numFmt = '_-Rp* #,##0_-;-Rp* #,##0_-;_-Rp* "-"_-;_-@_-'
           worksheet.getColumn('total_payment').numFmt = '_-Rp* #,##0_-;-Rp* #,##0_-;_-Rp* "-"_-;_-@_-'
@@ -233,8 +234,9 @@ class Controller {
           worksheet.getColumn('start_kos').numFmt = `[$-en-ID]dd mmmm yyyy`
           worksheet.getColumn('end_kos').numFmt = `[$-en-ID]dd mmmm yyyy`
           worksheet.addRow({
-            total_price_user: { formula: `SUM(D2:D${endRowUser - 1})` },
-            total_payment_user: { formula: `SUM(E2:E${endRowUser - 1})` },
+            total_price_user: { formula: `SUM(B2:B${endRowUser - 1})` },
+            total_payment_user: { formula: `SUM(C2:C${endRowUser - 1})` },
+            total_discount_user: { formula: `SUM(D2:D${endRowUser - 1})` },
           });          
           // break;
         case 'all':
@@ -273,17 +275,17 @@ class Controller {
           //export excel
           worksheet = workbook.addWorksheet('Payment')
           worksheet.columns = [
+            {header: 'Username', key: 'username', width: 15},
             {header: 'Build', key: 'build', width: 15},
-            {header: 'Address', key: 'address', width: 20},
             {header: 'Package', key: 'package', width: 12},
             {header: 'Duration', key: 'duration', width: 13},
             {header: 'Room', key: 'room', width: 10},
-            {header: 'Size', key: 'size', width: 10},
-            {header: 'Username', key: 'username', width: 15},
-            {header: 'Email', key: 'email', width: 25},
             {header: 'Status', key: 'status', width: 10},
+            {header: 'Start Kos', key: 'start_kos', width: 19},
+            {header: 'End Kos', key: 'end_kos', width: 19 },
             {header: 'Type Discount', key: 'type_discount', width: 15},
-            {header: 'Discount', key: 'discount', width: 15},
+            {header: 'Discount', key: 'discount', width: 10},
+            {header: 'Total Discount', key: 'total_discount', width: 17},
             {header: 'Price Room', key: 'price_room', width: 17},
             {header: 'Total Price', key: 'total_price', width: 17},
             {header: 'Payment', key: 'payment', width: 17},
@@ -291,14 +293,43 @@ class Controller {
             {header: 'Deficiency', key: 'deficiency', width: 17},
             {header: 'Type Payment', key: 'type_payment', width: 16},
             {header: 'Date', key: 'date', width: 19},
-            {header: 'Start Kos', key: 'start_kos', width: 19},
-            {header: 'End Kos', key: 'end_kos', width: 19 }
           ]
-          for (const row of result) {
-            worksheet.addRow(row);
+          // for (const row of result) {
+          //   worksheet.addRow(row);
+          // }
+          for (let i = 0; i < result.length; i++) {
+            let row = result[i]
+            //menghitung total discount
+            switch (result[i].type_discount) {
+              case '%':
+                result[i].total_discount = result[i].total_discount * (result[i].discount / 100)
+                break;
+              case 'month':
+                result[i].total_discount = result[i].price_room * result[i].discount
+                break;
+              case 'nominal':
+                result[i].total_discount = result[i].discount
+                break;
+            }
+            //jika terdapat orang yang keluar saat ngekos
+            if(result[i].total_price == -1) {
+              result[i].total_price = (row.price_room * row.duration) - row.total_discount
+              result[i].deficiency = result[i].total_price - row.total_payment
+              result[i].keluar = true
+            }else{
+              result[i].keluar = false
+            }
+            let resRow = worksheet.addRow(result[i]);
+            if(result[i].keluar){
+              resRow.fill = {
+                type: 'pattern',
+                pattern:'solid',
+                fgColor: { argb: 'ffea11' }
+            };
+            }
           }
           const endRow = worksheet.lastRow.number + 1;
-          worksheet.autoFilter = 'A1:T1';
+          worksheet.autoFilter = 'A1:S1';
           let firstRow = worksheet.getRow(1)
           firstRow.height = 20
           firstRow.eachCell((cell, i)=>{
@@ -314,6 +345,7 @@ class Controller {
           worksheet.getColumn('total_price').numFmt = '_-Rp* #,##0_-;-Rp* #,##0_-;_-Rp* "-"_-;_-@_-'
           worksheet.getColumn('payment').numFmt = '_-Rp* #,##0_-;-Rp* #,##0_-;_-Rp* "-"_-;_-@_-'
           worksheet.getColumn('total_payment').numFmt = '_-Rp* #,##0_-;-Rp* #,##0_-;_-Rp* "-"_-;_-@_-'
+          worksheet.getColumn('total_discount').numFmt = '_-Rp* #,##0_-;-Rp* #,##0_-;_-Rp* "-"_-;_-@_-'
           worksheet.getColumn('deficiency').numFmt = '_-Rp* #,##0_-;-Rp* #,##0_-;_-Rp* "-"_-;_-@_-'
           worksheet.getColumn('date').numFmt = `[$-en-ID]dd mmmm yyyy`
           worksheet.getColumn('start_kos').numFmt = `[$-en-ID]dd mmmm yyyy`
@@ -603,7 +635,7 @@ class Controller {
           type: QueryTypes.SELECT
         })
         if(result.length == 0) throw {status: 402, message: 'data pembayaran tidak ditemukan'}
-        console.log(result)
+        // console.log(result)
         if(result[0].money - result[0].pay + payment > result[0].money) throw {status: 400, message: 'pembayaran melebihi total tagihan'}
         data.pay = payment
       }
