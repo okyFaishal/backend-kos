@@ -79,8 +79,8 @@ class Controller {
         where h.deleted_at is null and h.pay=-1 ${user_id?'and u.id=:user_id':''} ${room_id?'and r.id=:room_id':''} ${package_id?'and p.id=:package_id':''} ${history_id?'and h.id=:history_id':''}
         group by h.id, u.id, r.id, b.id, p.id
         order by h.updated_at desc
-        offset ${page||0} rows
-        ${limit?`fetch first ${limit} rows only`:''}
+        offset ${page?':page':0} rows
+        ${limit?`fetch first :limit rows only`:''}
       `,{
         replacements: {history_id, user_id, package_id, room_id, page, limit},
         type: QueryTypes.SELECT
@@ -127,8 +127,8 @@ class Controller {
           INNER JOIN payment p ON p.deleted_at is null AND p.history_id  = h.id
           INNER JOIN (select round(p3.history_id) AS history_id, sum(p3.pay) AS total_payment FROM payment p3 group by p3.history_id) AS p4 on p4.history_id = h.id
         ORDER by u.id, h.start_kos desc, p."date" desc
-        OFFSET ${page||0} rows
-        ${limit?`fetch first ${limit} rows only`:''}
+        offset ${page?':page':0} rows
+        ${limit?`fetch first :limit rows only`:''}
       `, {type: QueryTypes.SELECT, replacements: {page, limit}})
       if(result.length == 0) throw {status: 402, message: 'Data Tidak DItemukan'}
       let count = (await sq.query(`select count(*) from "user" where status_user = false`, {type: QueryTypes.SELECT}))[0].count
@@ -160,8 +160,8 @@ class Controller {
         where h.deleted_at is null ${user_id?'and u.id=:user_id':''} ${room_id?'and r.id=:room_id':''} ${package_id?'and p.id=:package_id':''} ${history_id?'and h.id=:history_id':''}
         group by h.id, u.id, r.id, b.id, p.id
         order by h.updated_at desc
-        offset ${page||0} rows
-        ${limit?`fetch first ${limit} rows only`:''}
+        offset ${page?':page':0} rows
+        ${limit?`fetch first :limit rows only`:''}
       `,{
         replacements: {history_id, user_id, package_id, room_id, page, limit},
         type: QueryTypes.SELECT

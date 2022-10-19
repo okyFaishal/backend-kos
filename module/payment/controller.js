@@ -377,7 +377,7 @@ class Controller {
           p2."name" as "package", p2.duration ,
           r."name" as "room", r."size", 
           u.username , u.email , u.status ,
-          h.type_discount, h.discount,
+          h.type_discount, h.discount, 
           r.price as "price_room", h.pay as "total_price", p.pay as "payment", (sum(p3.pay))::integer as "total_payment", (h.pay - sum(p3.pay)::integer) as "deficiency", 
           p."type" as "type_payment", p."date" ,
           h.start_kos ,h.start_kos + interval '1 month' * p2.duration - interval '1 day' as "end_kos"
@@ -396,15 +396,37 @@ class Controller {
         ${type?'and p.type = :type':''}
         group by p.id, u.id, h.id, p2.id, r.id, b.id
         order by p.date desc
-        offset ${page||0} rows
-        ${limit?`fetch first ${limit} rows only`:''}
+        offset ${page?':page':0} rows
+        ${limit?`fetch first :limit rows only`:''}
       `, {type: QueryTypes.SELECT, replacements: {payment_id, user_id, history_id, type, page, limit}})
       if(result.length == 0) throw {status: 402, message: 'data tidak ditemukan'}
       let count = 0
-      result.forEach((el, idx, arr) => {
-        if(count == 0) count = el.count
-        arr[idx].count = undefined
-      });
+      for (let i = 0; i < result.length; i++) {
+        //jika keluar
+        if(result[i].total_price == -1) {
+          result[i].total_price = result[i].price_room * result[i].duration
+          result[i].total_discount = 0
+          //menghitung total discount
+          switch (result[i].type_discount) {
+            case '%':
+              result[i].total_discount = result[i].total_price * (result[i].discount / 100)
+              break;
+            case 'month':
+              result[i].total_discount = result[i].price_room * result[i].discount
+              break;
+            case 'nominal':
+              result[i].total_discount = result[i].discount
+              break;
+          }
+          result[i].total_price -= result[i].total_discount
+          result[i].deficiency = result[i].total_price - result[i].total_payment
+          result[i].keluar = true
+        }else{
+          result[i].keluar = false
+        }
+        if(count == 0) count = result[i].count
+        result[i].count = undefined
+      }
       res.status(200).json({status: 200, message: 'success show payment', data: {data_payment: result, limit, pageNow: page, pageLast: limit ? Math.ceil(count/limit) : undefined, count}})
     } catch (error) {
       next({status: 500, data: error})
@@ -422,7 +444,6 @@ class Controller {
   static async showCountPayment(req, res, next) {
     try {
       let {mode} = req.query
-      req.dataUsers.status_user?true:user_id = req.dataUsers.id
       let result = await dbpayment.findAll({order: [['date', 'ASC']]})
       if(result.length == 0) throw {status: 402, message: 'data tidak ditemukan'}
       let data = []

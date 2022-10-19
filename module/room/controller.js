@@ -20,9 +20,9 @@ class Controller {
           left join "user" u on u.id = h.user_id 
         where r.deleted_at is null ${build_id?'and b.id = :build_id':''} ${room_id?'and r.id = :room_id':''} ${name?'and r.name LIKE :name':''}
         order by r."name" ASC
-        offset ${page||0} rows
-        ${limit?`fetch first ${limit} rows only`:''}
-      `, {type: QueryTypes.SELECT, replacements: {build_id, room_id, name, start_date, end_date}})
+        offset ${page?':page':0} rows
+        ${limit?`fetch first :limit rows only`:''}
+      `, {type: QueryTypes.SELECT, replacements: {build_id, room_id, name, start_date, end_date, limit, page}})
       
       if(result.length == 0) throw {status: 402, message: 'data tidak ditemukan'}
       let data = []
