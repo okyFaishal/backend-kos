@@ -58,7 +58,7 @@ class Controller {
             {header: 'Username', key: 'username', width: 15},
             {header: 'Build', key: 'build', width: 15},
             {header: 'Room', key: 'room', width: 10},
-            {header: 'Package', key: 'package', width: 12},
+            {header: 'Package', key: 'package', width: 17},
             {header: 'Duration', key: 'duration', width: 15},
             {header: 'Type Discount', key: 'type_discount', width: 15},
             {header: 'Discount', key: 'discount', width: 15},
@@ -72,6 +72,7 @@ class Controller {
           ]
           for (let i = 0; i < result.length; i++) {
             let row = result[i]
+            result[i].total_discount = 0
             //menghitung total discount
             switch (result[i].type_discount) {
               case '%':
@@ -300,6 +301,7 @@ class Controller {
           for (let i = 0; i < result.length; i++) {
             let row = result[i]
             //menghitung total discount
+            result[i].total_discount = 0
             switch (result[i].type_discount) {
               case '%':
                 result[i].total_discount = result[i].total_discount * (result[i].discount / 100)
