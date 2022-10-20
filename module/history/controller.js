@@ -9,7 +9,7 @@ const moment = require('moment')
 
 
 class Controller {
-  static async showHistoryNow(req, res, next) {
+  static async showHistoryNow(req, res, next) { //untuk dashboard user
     try {
       let {user_id} = req.query
       if(!user_id) throw {status: 400, message: 'masukkan id user'}      
@@ -115,8 +115,8 @@ class Controller {
       let result = await sq.query(`
         SELECT DISTINCT on (u.id) u.id AS user_id, h.id AS history_id, r.id AS room_id, b.id AS build_id, p.id AS payment_id,
           u.username, u.email,
-          h.start_kos, h.start_kos + interval '1 month' * p2.duration - interval '1 day' AS "end_kos", 
-          r."name" AS room_name, r."size" , r.price ,
+          h.start_kos, h.start_kos + interval '1 month' * p2.duration - interval '1 day' AS "end_kos", p2.duration, 
+          r."name" AS room_name, r."size" , r.price as price_room,
           b."name" , b.address ,
           p."date" AS date_payment, h.pay AS total_price, p.pay, p4.total_payment, h.pay - p4.total_payment AS deficiency
         FROM "user" u
@@ -131,6 +131,31 @@ class Controller {
         ${limit?`fetch first :limit rows only`:''}
       `, {type: QueryTypes.SELECT, replacements: {page, limit}})
       if(result.length == 0) throw {status: 402, message: 'Data Tidak DItemukan'}
+      for (let i = 0; i < result.length; i++) {
+        //jika keluar
+        console.log(result[i].total_price, result[i].duration)
+        if(result[i].total_price == -1) {
+          result[i].total_price = result[i].price_room * result[i].duration
+          result[i].total_discount = 0
+          //menghitung total discount
+          switch (result[i].type_discount) {
+            case '%':
+              result[i].total_discount = result[i].total_price * (result[i].discount / 100)
+              break;
+            case 'month':
+              result[i].total_discount = result[i].price_room * result[i].discount
+              break;
+            case 'nominal':
+              result[i].total_discount = result[i].discount
+              break;
+          }
+          result[i].total_price -= result[i].total_discount
+          result[i].deficiency = result[i].total_price - result[i].total_payment
+          result[i].keluar = true
+        }else{
+          result[i].keluar = false
+        }
+      }
       let count = (await sq.query(`select count(*) from "user" where status_user = false`, {type: QueryTypes.SELECT}))[0].count
       res.status(200).json({status: 200, message: 'Success Show History By User', data: {data_payment: result, limit, pageNow: page, pageLast: limit ? Math.ceil(count/limit) : undefined, count}})
     } catch (error) {
@@ -157,7 +182,7 @@ class Controller {
           inner join build b on b.id = r.build_id
           inner join package p on p.id = h.package_id 
           left join payment p2 on p2.deleted_at is null and p2.history_id  = h.id 
-        where h.deleted_at is null ${user_id?'and u.id=:user_id':''} ${room_id?'and r.id=:room_id':''} ${package_id?'and p.id=:package_id':''} ${history_id?'and h.id=:history_id':''}
+        where h.deleted_at is null and h.pay != -1 ${user_id?'and u.id=:user_id':''} ${room_id?'and r.id=:room_id':''} ${package_id?'and p.id=:package_id':''} ${history_id?'and h.id=:history_id':''}
         group by h.id, u.id, r.id, b.id, p.id
         order by h.updated_at desc
         offset ${page?':page':0} rows
