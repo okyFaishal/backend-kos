@@ -133,7 +133,6 @@ class Controller {
       if(result.length == 0) throw {status: 402, message: 'Data Tidak DItemukan'}
       for (let i = 0; i < result.length; i++) {
         //jika keluar
-        console.log(result[i].total_price, result[i].duration)
         if(result[i].total_price == -1) {
           result[i].total_price = result[i].price_room * result[i].duration
           result[i].total_discount = 0
@@ -164,7 +163,10 @@ class Controller {
   }
   static async showHistory(req, res, next) {
     try {
-      let {history_id, user_id, room_id, package_id, page, limit} = req.query
+      let {mode, history_id, user_id, room_id, package_id, page, limit} = req.query
+      if(mode == 'hanya clear room') mode = 'and h.pay = -1 '
+      else if(mode == 'tanpa clear room') mode = 'and h.pay != -1 '
+      else mode = ''
       req.dataUsers.status_user?true:user_id = req.dataUsers.id
       let result = await sq.query(`
         select 
@@ -182,9 +184,9 @@ class Controller {
           inner join build b on b.id = r.build_id
           inner join package p on p.id = h.package_id 
           left join payment p2 on p2.deleted_at is null and p2.history_id  = h.id 
-        where h.deleted_at is null and h.pay != -1 ${user_id?'and u.id=:user_id':''} ${room_id?'and r.id=:room_id':''} ${package_id?'and p.id=:package_id':''} ${history_id?'and h.id=:history_id':''}
+        where h.deleted_at is null ${mode} ${user_id?'and u.id=:user_id':''} ${room_id?'and r.id=:room_id':''} ${package_id?'and p.id=:package_id':''} ${history_id?'and h.id=:history_id':''}
         group by h.id, u.id, r.id, b.id, p.id
-        order by h.updated_at desc
+        order by h.start_kos desc
         offset ${page?':page':0} rows
         ${limit?`fetch first :limit rows only`:''}
       `,{
@@ -193,10 +195,32 @@ class Controller {
       })
       if(result.length == 0) throw {status: 402, message: 'data tidak ditemukan'}
       let count = 0
-      result.forEach((el, idx, arr) => {
-        if(count == 0) count = el.count
-        arr[idx].count = undefined
-      });
+      for (let i = 0; i < result.length; i++) {
+        //jika keluar
+        if(result[i].total_price == -1) {
+          result[i].total_price = result[i].price_room * result[i].duration
+          result[i].total_discount = 0
+          //menghitung total discount
+          switch (result[i].type_discount) {
+            case '%':
+              result[i].total_discount = result[i].total_price * (result[i].discount / 100)
+              break;
+            case 'month':
+              result[i].total_discount = result[i].price_room * result[i].discount
+              break;
+            case 'nominal':
+              result[i].total_discount = result[i].discount
+              break;
+          }
+          result[i].total_price -= result[i].total_discount
+          result[i].deficiency = result[i].total_price - result[i].total_payment
+          result[i].keluar = true
+        }else{
+          result[i].keluar = false
+        }
+        if(count == 0) count = result[i].count
+        result[i].count = undefined
+      }
       res.status(200).json({status: 200, message: 'success show history', data: {data_history: result, limit, pageNow: page, pageLast: limit ? Math.ceil(count/limit) : undefined, count}})
     } catch (error) {
       next({status: 500, data: error})
