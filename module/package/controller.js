@@ -9,9 +9,11 @@ class Controller {
       let {package_id, page, limit, name, order} = req.query
       if(page && !limit) throw {status: 403, message: 'masukkan limit'}
       let offset = page?((page - 1) * limit):undefined
+
       let where = {}
       if(package_id) where.id = package_id
       if(name) where.name = {[Op.like]:`%${name}%`}
+
       let result = await dbpackage.findAll({where, offset, limit, order: [[order||'updated_at', 'ASC']]})
       let count = await dbpackage.count()
       res.status(200).json({status: 200, message: 'success show package', data: {data_package: result, limit, pageNow: page, pageLast: limit ? Math.ceil(count/limit) : undefined, count}})
@@ -24,8 +26,10 @@ class Controller {
       let {name, description, discount, duration} = req.body
       if(!req.dataUsers.status_user) throw {status: 403, message: 'tidak memiliki akses'}
       if(!(name && duration)) throw {status: 400, message: 'lengkapi data'}
-      if(/\D/.test(duration)) throw {status: 400, message: 'duration tidak valid'}
-      duration = Number.parseInt(duration)
+      if(duration){
+        if(/\D/.test(duration)) throw {status: 400, message: 'duration tidak valid'}
+        duration = Number.parseInt(duration)
+      }
       if(discount){
         if(/\D/.test(discount)) throw {status: 400, message: 'discount tidak valid'}
         discount = Number.parseInt(discount)

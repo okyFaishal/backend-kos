@@ -23,8 +23,6 @@ class Controller {
         offset ${page?':page':0} rows
         ${limit?`fetch first :limit rows only`:''}
       `, {type: QueryTypes.SELECT, replacements: {build_id, room_id, name, start_date, end_date, limit, page}})
-      
-      if(result.length == 0) throw {status: 402, message: 'data tidak ditemukan'}
       let data = []
       let count = 0
       result.forEach((elResult, idx, arr) => {
@@ -56,7 +54,7 @@ class Controller {
         where r.deleted_at is null 
         ${mode == 'build' ? 'group by b.id':''}
       `, {type: QueryTypes.SELECT})
-      if(result.length == 0) throw {status: 402, message: 'data tidak ditemukan'}
+      // if(result.length == 0) throw {status: 402, message: 'data tidak ditemukan'}
       res.status(200).json({status: 200, message: 'success show count room', data: result})
     } catch (error) {
       next({status: 500, data: error})
@@ -68,8 +66,6 @@ class Controller {
       if(!req.dataUsers.status_user) throw {status: 400, message: 'tidak memiliki akses'}
       if(!(build_id, name && size && price)) throw {status: 400, message: 'lengkapi data'}
       if(price && (/\D/.test(price))) throw {status: 400, message: 'price tidak valid'}
-      let cek = await room.findOne({where: {build_id, name}})
-      if(cek) throw {status: 400, message: 'Bangunan Telah Memiliki Nama Ruangan '+name}
 
       let result = await room.create({build_id, name, size, price})
       res.status(200).json({status: 200, message: 'success create room', data: result})
@@ -85,8 +81,6 @@ class Controller {
       if(!id) throw {status: 400, message: 'masukkan id yang akan diupdate'}
       if(!(name || size || price)) throw {status: 400, message: 'tidak ada yang diupdate'}
       if(price && (/\D/.test(price))) throw {status: 400, message: 'price tidak valid'}
-      let cek = await room.findOne({where: {build_id, name}})
-      if(cek) throw {status: 400, message: 'Bangunan Telah Memiliki Nama Ruangan '+name}
 
       let result = await room.update({name, size, price}, {where: {id}})
       if(result[0] == 0) throw {status: 400, message: 'tidak menemukan data yang akan diupdate'}
@@ -98,8 +92,9 @@ class Controller {
   static async deleteRoom(req, res, next){
     try {
       const {id} = req.params
-      if(!id) throw {status: 400, message: 'masukkan id yang akan dihapus'}
       if(!req.dataUsers.status_user) throw {status: 400, message: 'tidak memiliki akses'}
+      if(!id) throw {status: 400, message: 'masukkan id yang akan dihapus'}
+
       let result = await room.destroy({where: {id}})
       if(result == 0) throw {status: 400, message: 'tidak menemukan data yang akan dihapus'}
       res.status(200).json({status: 200, message: 'success delete room', data: result})
